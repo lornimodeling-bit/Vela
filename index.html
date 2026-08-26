@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100 font-sans">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VELA · Motor de carruseles</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Fonts: Inter (sans), Montserrat (display), Shadows Into Light & Caveat (manuscrita), Fraunces (serif) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Montserrat:wght@700;800;900&family=Shadows+Into+Light&family=Caveat:wght@500;700&family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Export libs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    .font-hand { font-family: 'Shadows Into Light', cursive; }
+    .font-caveat { font-family: 'Caveat', cursive; }
+    .font-serif-v { font-family: 'Fraunces', serif; }
+    .font-mono-v { font-family: 'Roboto Mono', monospace; }
+    .font-system { font-family: -apple-system, 'SF Pro Display', system-ui, 'Inter', sans-serif; }
+
+    /* VELA warm flame accent gradient */
+    .vela-flame { background: linear-gradient(135deg, #f59e0b 0%, #f43f5e 55%, #7c3aed 100%); }
+
+    .canvas-glow { box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+    .sticker-effect {
+      filter: drop-shadow(0px 0px 1px #fff) drop-shadow(3px 3px 0 #fff) drop-shadow(-3px -3px 0 #fff)
+              drop-shadow(3px -3px 0 #fff) drop-shadow(-3px 3px 0 #fff);
+    }
+    /* dotted grid for T12 preview */
+    .dot-grid {
+      background-color:#faf9f5;
+      background-image: radial-gradient(#c9c6bd 1px, transparent 1px);
+      background-size: 10px 10px;
+    }
+    .blink { animation: blink 1s steps(2,start) infinite; }
+    @keyframes blink { to { visibility: hidden; } }
+
+    /* type card selected / recommended states */
+    .type-card { transition: all .18s ease; }
+    .type-card.selected { outline: 2px solid #f43f5e; outline-offset: 2px; transform: translateY(-2px); }
+    .reco-badge { display:none; }
+    .type-card.reco .reco-badge { display:inline-flex; }
+    .type-card.dimmed { opacity:.55; }
+  </style>
+</head>
+
+<body class="h-full flex flex-col overflow-x-hidden antialiased">
+
+  <!-- ============ HEADER ============ -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <!-- Brand -->
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="switchStep(1)">
+        <div class="w-10 h-10 rounded-xl vela-flame flex items-center justify-center text-white shadow-lg shadow-rose-500/20">
+          <i data-lucide="flame" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <span class="font-extrabold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">VELA</span>
+          <span class="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 font-medium border border-amber-500/20 ml-1 whitespace-nowrap">Motor de carruseles</span>
+        </div>
+      </div>
+
+      <!-- Stepper -->
+      <nav class="flex items-center space-x-1 sm:space-x-2 bg-slate-950/60 p-1.5 rounded-2xl border border-slate-800/80">
+        <button id="nav-step-1" onclick="switchStep(1)" class="nav-btn flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold">
+          <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs">1</span>
+          <span class="hidden md:inline">Objetivo, Guión & Estilo</span>
+        </button>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i>
+        <button id="nav-step-2" onclick="switchStep(2)" class="nav-btn flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-400">
+          <span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-xs">2</span>
+          <span class="hidden md:inline">Editor</span>
+        </button>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i>
+        <button id="nav-step-3" onclick="switchStep(3)" class="nav-btn flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-400">
+          <span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-xs">3</span>
+          <span class="hidden md:inline">Vista previa & Exportar</span>
+        </button>
+      </nav>
+
+      <!-- Status + save -->
+      <div class="hidden sm:flex items-center space-x-3">
+        <span class="flex items-center text-xs text-slate-400 bg-slate-950/60 border border-slate-800 px-2.5 py-1 rounded-full">
+          <span id="save-dot" class="w-2 h-2 rounded-full bg-emerald-400 mr-2"></span> <span id="save-label">Guardado ✓</span>
+        </span>
+        <button id="ai-pill" onclick="setAiUrl()" class="flex items-center text-xs text-amber-300 bg-amber-950/40 border border-amber-800/40 px-2.5 py-1 rounded-full hover:bg-amber-950/70" title="Conectar el backend de IA (Supabase)">
+          <i data-lucide="sparkles" class="w-3 h-3 mr-1.5"></i> <span id="ai-pill-label">IA: sin conectar</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 flex flex-col">
+
+    <!-- ================= STEP 1 ================= -->
+    <section id="step-1" class="flex-1 flex flex-col py-4">
+      <div class="text-center mb-6 max-w-2xl mx-auto">
+        <h1 class="text-2xl sm:text-4xl font-extrabold text-white tracking-tight mb-2">
+          Enciende tu carrusel <span class="font-serif-v italic bg-clip-text text-transparent vela-flame">en minutos</span>
+        </h1>
+        <p class="text-sm sm:text-base text-slate-400">
+          Elige tu <strong>objetivo</strong>, escoge un <strong>estilo</strong>, pega tu guión y adjunta tus fotos. VELA arma el resto.
+        </p>
+      </div>
+
+      <div class="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-5">
+
+        <!-- LEFT: AI assistant chat -->
+        <div class="lg:col-span-2 relative bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden flex flex-col min-h-[460px]">
+          <div class="absolute inset-0 vela-flame opacity-[0.12] blur-3xl pointer-events-none"></div>
+          <div class="relative z-10 flex items-center justify-between p-5 border-b border-white/10">
+            <div class="flex items-center space-x-2">
+              <span class="p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30"><i data-lucide="sparkles" class="w-4 h-4"></i></span>
+              <div>
+                <h3 class="text-sm font-bold text-white">Específica a VELA</h3>
+                <p class="text-xs text-slate-400">Estructura tu guión y da instrucciones</p>
+              </div>
+            </div>
+          </div>
+          <div id="ai-chat-box" class="relative z-10 flex-1 p-5 overflow-y-auto space-y-3 max-h-[300px]">
+            <div class="flex items-start space-x-2">
+              <div class="w-7 h-7 rounded-full vela-flame flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">V</div>
+              <div class="bg-slate-800/90 border border-slate-700/60 rounded-2xl rounded-tl-none p-3 text-xs text-slate-200 leading-relaxed max-w-[85%]">
+                ¡Hola! 👋 Pega tu guión o cuéntame la idea. Lo divido en slides según el <strong>estilo</strong> que elijas y te muestro los cambios para aprobar. <span class="text-slate-500">(chat de demostración)</span>
+              </div>
+            </div>
+          </div>
+          <div class="relative z-10 p-4 border-t border-white/10">
+            <div class="flex items-center bg-slate-950/90 border border-slate-700/80 rounded-2xl px-3 py-1.5 focus-within:border-amber-500 transition-colors">
+              <input type="text" id="ai-chat-input" placeholder="Ej: /acortar slide 2  ·  o escribe una idea…" class="bg-transparent border-none text-xs text-white placeholder-slate-500 focus:outline-none flex-1 py-1">
+              <button onclick="sendChatMessage()" class="p-2 vela-flame hover:opacity-90 text-white rounded-xl"><i data-lucide="send" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: controls -->
+        <div class="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col space-y-6">
+
+          <!-- 1. Objective -->
+          <div>
+            <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">1 · Objetivo</label>
+            <div class="grid grid-cols-4 gap-2">
+              <button onclick="selectObjective('Educar')" id="obj-educar" class="obj-btn active-obj flex flex-col items-center gap-1 p-2.5 rounded-xl border border-rose-500 bg-rose-500/10 text-xs font-medium text-white"><span>📚</span><span>Educar</span></button>
+              <button onclick="selectObjective('Vender')" id="obj-vender" class="obj-btn flex flex-col items-center gap-1 p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 text-xs font-medium text-slate-400 hover:border-slate-700"><span>💰</span><span>Vender</span></button>
+              <button onclick="selectObjective('Personal')" id="obj-personal" class="obj-btn flex flex-col items-center gap-1 p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 text-xs font-medium text-slate-400 hover:border-slate-700"><span>👤</span><span>Personal</span></button>
+              <button onclick="selectObjective('Motivacional')" id="obj-motivacional" class="obj-btn flex flex-col items-center gap-1 p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 text-xs font-medium text-slate-400 hover:border-slate-700"><span>🔥</span><span>Motiv.</span></button>
+            </div>
+          </div>
+
+          <!-- 2. Style / Type gallery -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider">2 · Estilo (Tipo)</label>
+              <span class="text-[10px] text-slate-500">⭐ recomendados para <span id="reco-obj-label" class="text-amber-300 font-semibold">Educar</span> · puedes elegir cualquiera</span>
+            </div>
+            <div id="type-gallery" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+          </div>
+
+          <!-- 3. Slide count -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-xs font-bold text-slate-300 uppercase tracking-wider">3 · Nº de slides</label>
+              <span id="slides-hint" class="text-[10px] text-slate-500">elige un estilo primero</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <button onclick="changeSlides(-1)" class="w-8 h-8 rounded-lg border border-slate-800 bg-slate-950 text-slate-300 hover:text-white font-bold text-lg leading-none">−</button>
+              <span id="slides-count" class="text-lg font-bold text-white w-6 text-center">—</span>
+              <button onclick="changeSlides(1)" class="w-8 h-8 rounded-lg border border-slate-800 bg-slate-950 text-slate-300 hover:text-white font-bold text-lg leading-none">+</button>
+              <div id="slides-pills" class="flex gap-1 ml-2 flex-wrap"></div>
+            </div>
+          </div>
+
+          <!-- 4. Script -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs font-bold text-slate-300 uppercase tracking-wider">4 · Guión</label>
+              <label class="flex items-center gap-1.5 text-[10px] text-slate-400 cursor-pointer">
+                <input type="checkbox" id="split-roles" checked class="accent-rose-500"> dividir por roles (IA)
+              </label>
+            </div>
+            <textarea id="guion-input" rows="3" placeholder="Pega o escribe tu guión aquí…  (o solo el tema principal)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none resize-none"></textarea>
+            <div class="flex items-center gap-2 mt-2">
+              <button onclick="document.getElementById('file-upload').click()" class="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-white border border-slate-800 rounded-lg px-2.5 py-1.5"><i data-lucide="upload" class="w-3.5 h-3.5"></i> Subir .txt/.docx</button>
+              <input type="file" id="file-upload" class="hidden" accept=".txt,.md,.docx" onchange="handleScriptUpload(event)">
+              <span id="upload-name" class="text-[10px] text-slate-500"></span>
+            </div>
+          </div>
+
+          <!-- 5. Photos -->
+          <div id="photos-section">
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs font-bold text-slate-300 uppercase tracking-wider">5 · Fotos</label>
+              <span id="photo-hint" class="text-[10px] text-slate-500">Este estilo no requiere fotos</span>
+            </div>
+            <!-- Assignment mode -->
+            <div class="flex items-center gap-2 mb-2">
+              <button id="mode-manual" onclick="setPhotoMode('manual')" class="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium rounded-lg px-2 py-1.5 border border-rose-500 bg-rose-500/10 text-white"><i data-lucide="hand" class="w-3.5 h-3.5"></i> Yo asigno</button>
+              <button id="mode-ia" onclick="setPhotoMode('ia')" class="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium rounded-lg px-2 py-1.5 border border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700"><i data-lucide="sparkles" class="w-3.5 h-3.5"></i> IA elige por contenido</button>
+            </div>
+            <div class="flex items-center gap-2">
+              <div onclick="document.getElementById('photo-upload').click()" class="w-16 h-14 rounded-xl border-2 border-dashed border-slate-700 hover:border-amber-500 bg-slate-950/80 flex flex-col items-center justify-center cursor-pointer text-center">
+                <i data-lucide="folder-open" class="w-4 h-4 text-slate-400"></i><span class="text-[8px] text-slate-400 mt-0.5 leading-tight">Subir<br>carpeta</span>
+                <input type="file" id="photo-upload" class="hidden" accept="image/*" multiple webkitdirectory directory onchange="handlePhotoUpload(event)">
+              </div>
+              <button onclick="showToast('Banco conectado a tu carpeta de Drive · las imágenes se leen desde ahí (Drive API en la app)')" class="w-16 h-14 rounded-xl border border-emerald-600/60 bg-emerald-950/30 flex flex-col items-center justify-center text-emerald-300 text-center relative" title="Banco conectado a tu carpeta de Drive">
+                <i data-lucide="folder-check" class="w-4 h-4"></i><span class="text-[8px] mt-0.5 leading-tight">Drive<br>conectado</span>
+                <span class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-900"></span>
+              </button>
+              <div class="flex flex-col justify-center gap-1">
+                <span id="photo-count" class="text-[11px] text-slate-300 font-semibold">Banco: Drive ✓</span>
+                <div id="photo-thumbs" class="flex gap-1.5 overflow-x-auto max-w-[190px]"></div>
+              </div>
+            </div>
+            <p class="text-[10px] text-slate-500 mt-2">📁 Banco de fotos = tu carpeta de Drive. VELA saca las imágenes de ahí (no se suben al prototipo). "Subir carpeta" es solo para pruebas locales.</p>
+            <p id="ia-note" class="text-[10px] text-amber-300/80 mt-1 hidden">✨ La IA elegirá de tu carpeta de Drive la mejor foto para cada slide según su contenido (fase IA).</p>
+          </div>
+
+          <!-- Primary action -->
+          <div class="pt-1">
+            <button id="generate-btn" onclick="generateAndProceed()" class="w-full py-3.5 px-4 rounded-xl font-bold text-sm vela-flame hover:opacity-95 text-white shadow-xl shadow-rose-500/20 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+              <span id="generate-label">Elige un estilo para continuar</span>
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= STEP 2 · EDITOR 3 ZONAS MULTI-TIPO ================= -->
+    <section id="step-2" class="hidden flex-1 flex-col py-2">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-2 mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 text-xs text-slate-400 px-2">
+          <i data-lucide="layout-template" class="w-4 h-4 text-amber-300"></i>
+          Editor · <span id="editor-type-label" class="text-white font-semibold">—</span>
+          <span class="text-slate-600">|</span>
+          <div class="flex items-center gap-0.5 bg-slate-950 border border-slate-800 rounded-lg p-0.5">
+            <button id="fmt-45" onclick="setFormat('4:5')" class="px-2 py-0.5 rounded text-[11px] font-semibold">4:5</button>
+            <button id="fmt-916" onclick="setFormat('9:16')" class="px-2 py-0.5 rounded text-[11px] font-semibold text-slate-500">9:16</button>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="openVela()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600/20 border border-amber-500/40 text-amber-200 text-xs font-semibold hover:bg-amber-600/40"><i data-lucide="wand-2" class="w-3.5 h-3.5"></i> Pídeselo a VELA</button>
+          <button onclick="switchStep(3)" class="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"><span>Siguiente</span><i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>
+        </div>
+      </div>
+
+      <!-- Canva-style contextual toolbar -->
+      <div id="ctx-toolbar" class="hidden bg-slate-900 border border-slate-800 rounded-2xl px-2 py-1.5 mb-3 items-center gap-1 flex-wrap"></div>
+
+      <div class="flex-1 grid grid-cols-12 gap-3 min-h-[480px]">
+        <!-- LEFT: biblioteca + capas -->
+        <div class="col-span-3 bg-slate-900 border border-slate-800 rounded-2xl p-3 hidden sm:flex flex-col overflow-y-auto">
+          <p class="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2">Añadir elemento</p>
+          <div id="element-library" class="grid grid-cols-2 gap-2"></div>
+          <p class="text-[10px] text-slate-600 mt-2">Solo los elementos del estilo activo.</p>
+          <div class="mt-4 pt-3 border-t border-slate-800">
+            <p class="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2">Capas</p>
+            <div id="layers-list" class="space-y-1"></div>
+          </div>
+        </div>
+
+        <!-- CENTER: lienzo + thumbnails -->
+        <div class="col-span-12 sm:col-span-6 flex flex-col items-center">
+          <div class="w-full max-w-[360px] flex items-center justify-between text-[11px] text-slate-400 mb-2">
+            <span id="slide-label" class="font-medium text-slate-300">Slide 1</span>
+            <div class="flex gap-2 text-slate-400">
+              <i data-lucide="copy" class="w-3.5 h-3.5 cursor-pointer hover:text-white" title="Duplicar" onclick="dupSlide()"></i>
+              <i data-lucide="trash-2" class="w-3.5 h-3.5 cursor-pointer hover:text-rose-400" title="Eliminar" onclick="delSlide()"></i>
+            </div>
+          </div>
+          <div id="editor-canvas" onclick="selectLayer(null)" class="relative w-full max-w-[360px] aspect-[4/5] rounded-2xl overflow-hidden canvas-glow border border-slate-700/80"></div>
+          <input type="file" id="layer-photo-input" class="hidden" accept="image/*" onchange="onLayerPhoto(event)">
+          <input type="file" id="bg-photo-input" class="hidden" accept="image/*" onchange="onBgPhoto(event)">
+          <div class="mt-3 w-full max-w-[360px] bg-slate-900 border border-slate-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto">
+            <div id="deck-thumbs" class="flex gap-2"></div>
+            <button onclick="addSlide()" class="w-10 h-14 rounded-lg border-2 border-dashed border-slate-700 hover:border-amber-500 flex items-center justify-center text-slate-400 flex-shrink-0"><i data-lucide="plus" class="w-4 h-4"></i></button>
+          </div>
+        </div>
+
+        <!-- RIGHT: propiedades -->
+        <div class="col-span-3 bg-slate-900 border border-slate-800 rounded-2xl p-3 hidden sm:block overflow-y-auto">
+          <p class="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2">Propiedades</p>
+          <div id="editor-props" class="space-y-3 text-[11px] text-slate-400"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= STEP 3 · PREVIEW & EXPORT ================= -->
+    <section id="step-3" class="hidden flex-1 flex-col py-4">
+      <div class="text-center mb-5">
+        <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-2 inline-block">🎉 Listo para publicar</span>
+        <h2 class="text-2xl font-extrabold text-white">Vista previa & Exportar</h2>
+        <p class="text-xs text-slate-400">Formato <span id="preview-format" class="text-amber-300 font-semibold">4:5</span></p>
+      </div>
+
+      <div class="w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- carousel preview -->
+        <div class="flex flex-col items-center">
+          <div class="relative">
+            <button onclick="navPreview(-1)" class="absolute -left-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-slate-900/80 border border-slate-700 text-white hover:bg-slate-800"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+            <div id="preview-phone" class="w-[300px] max-w-full aspect-[4/5] rounded-2xl overflow-hidden border border-slate-700 canvas-glow relative"></div>
+            <button onclick="navPreview(1)" class="absolute -right-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-slate-900/80 border border-slate-700 text-white hover:bg-slate-800"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+          </div>
+          <div id="preview-dots" class="flex gap-1.5 mt-3"></div>
+        </div>
+
+        <!-- caption + QC + export -->
+        <div class="space-y-4">
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-2"><p class="text-sm font-bold text-white">Control de calidad</p><button onclick="runQC()" class="text-[11px] text-amber-300 hover:underline">Revisar de nuevo</button></div>
+            <div id="qc-list" class="space-y-1 text-[11px] text-slate-400"></div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-2"><p class="text-sm font-bold text-white">Caption del post</p>
+              <div class="flex gap-2"><button onclick="genCaption()" class="text-[11px] px-2 py-1 rounded bg-amber-600/20 border border-amber-500/40 text-amber-200"><i data-lucide="sparkles" class="w-3 h-3 inline"></i> Generar</button><button onclick="copyCaption()" class="text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-300">Copiar</button></div></div>
+            <textarea id="caption-box" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white resize-none focus:border-amber-500 focus:outline-none" placeholder="Tu caption + hashtags… (o genera con IA)"></textarea>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="exportPNG()" class="flex flex-col items-center gap-1 py-3 rounded-xl vela-flame text-white font-bold text-xs"><i data-lucide="image" class="w-4 h-4"></i> PNG slide</button>
+            <button onclick="exportZIP()" class="flex flex-col items-center gap-1 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white font-semibold text-xs"><i data-lucide="archive" class="w-4 h-4"></i> ZIP todo</button>
+            <button onclick="exportPDF()" class="flex flex-col items-center gap-1 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white font-semibold text-xs"><i data-lucide="file-text" class="w-4 h-4"></i> PDF</button>
+          </div>
+          <button onclick="nuevoCarrusel()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 text-sm"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> Nuevo carrusel</button>
+          <p id="export-status" class="text-[11px] text-slate-500 text-center h-4"></p>
+        </div>
+      </div>
+      <div id="export-stage" style="position:fixed;left:-9999px;top:0;"></div>
+    </section>
+  </main>
+
+  <!-- "Pídeselo a VELA" — AI chat panel (editor) -->
+  <div id="vela-chat" class="fixed top-0 right-0 h-full w-80 max-w-[85vw] bg-slate-900 border-l border-slate-800 z-[60] translate-x-full transition-transform duration-300 flex flex-col shadow-2xl">
+    <div class="relative flex items-center justify-between p-4 border-b border-slate-800">
+      <div class="absolute inset-0 vela-flame opacity-[0.12] blur-2xl pointer-events-none"></div>
+      <div class="relative flex items-center gap-2">
+        <span class="p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30"><i data-lucide="wand-2" class="w-4 h-4"></i></span>
+        <div>
+          <h3 class="text-sm font-bold text-white">Pídeselo a VELA</h3>
+          <p id="vela-chat-ctx" class="text-[10px] text-slate-400">Editando el carrusel</p>
+        </div>
+      </div>
+      <button onclick="closeVela()" class="relative text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <div id="vela-chat-box" class="flex-1 overflow-y-auto p-4 space-y-3">
+      <div class="flex items-start gap-2">
+        <div class="w-7 h-7 rounded-full vela-flame flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">V</div>
+        <div class="bg-slate-800/90 border border-slate-700/60 rounded-2xl rounded-tl-none p-3 text-xs text-slate-200 leading-relaxed">Dime qué quieres que haga en tus slides. Ej: <em>"acorta el título"</em>, <em>"pon el acento en rojo"</em>, <em>"agrega una flecha"</em>. <span class="text-slate-500">(demo; la IA se conecta en la fase Supabase)</span></div>
+      </div>
+    </div>
+    <div class="p-3 border-t border-slate-800">
+      <div id="vela-chips" class="flex flex-wrap gap-1.5 mb-2"></div>
+      <div class="flex items-center bg-slate-950/90 border border-slate-700/80 rounded-2xl px-3 py-1.5 focus-within:border-amber-500">
+        <input type="text" id="vela-chat-input" placeholder="Pídele algo a VELA…" onkeydown="if(event.key==='Enter')sendVela()" class="bg-transparent border-none text-xs text-white placeholder-slate-500 focus:outline-none flex-1 py-1">
+        <button onclick="sendVela()" class="p-2 vela-flame text-white rounded-xl"><i data-lucide="send" class="w-3.5 h-3.5"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Banco de fotos (selector) -->
+  <div id="bank-modal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/60 p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 max-w-md w-full max-h-[80vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3"><p class="text-sm font-bold text-white">Banco de fotos <span class="text-[10px] text-emerald-400">· Drive</span></p><button onclick="closeBank()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+      <div id="bank-grid" class="grid grid-cols-3 gap-2"></div>
+      <p id="bank-empty" class="text-xs text-slate-500 hidden">Aún no hay fotos en el banco. Súbelas en el Paso 1 ("Subir carpeta") — en la app se leerán de tu carpeta de Drive.</p>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 border border-amber-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 pointer-events-none">
+    <i data-lucide="check-circle" class="w-5 h-5 text-amber-400"></i>
+    <span id="toast-msg" class="text-xs font-semibold">Notificación</span>
+  </div>
+
+  <script>
+    /* ===================== PRESETS v1 ===================== */
+    const PRESETS = {
+      // ===== FAMILIA A · ÁNGULOS =====
+      A1: { id:'A1', nombre:'Personal Orgánico', familia:'Ángulos', fotoDep:'foto', badge:'📷 tus fotos', defaultBg:'photo',
+            objetivos:['Vender','Personal','Motivacional'], formato:'9:16',
+            bg:'linear-gradient(160deg,#3a4a5a,#1e293b,#0f172a)', fg:'#ffffff', accent:'#ffffff',
+            titleFont:"'Inter', sans-serif", bodyFont:"'Inter', sans-serif",
+            elementos:['Overlay','Flechas','Screenshots','Emoji','Scrim'], slidesRango:[4,6], slidesDefault:5 },
+      A2: { id:'A2', nombre:'Orgánico Gráficos', familia:'Ángulos', fotoDep:'capturas', badge:'📊 tus gráficos', defaultBg:'photo',
+            objetivos:['Educar','Vender'], formato:'4:5',
+            bg:'linear-gradient(160deg,#0f172a,#1e293b)', fg:'#ffffff', accent:'#34d399',
+            titleFont:"'Inter', sans-serif", bodyFont:"'Inter', sans-serif",
+            elementos:['Gráfico','Screenshots','Overlay','Flechas','Cajas'], slidesRango:[3,6], slidesDefault:5 },
+      A3: { id:'A3', nombre:'Recurso', familia:'Ángulos', fotoDep:'foto', badge:'📷 foto + recursos', defaultBg:'preset',
+            objetivos:['Educar','Vender'], formato:'4:5',
+            bg:'#f7f3ea', fg:'#1f2937', accent:'#e11d48',
+            titleFont:"'Caveat', cursive", bodyFont:"'Inter', sans-serif",
+            elementos:['Diagramas','Flechas','Sticky','Íconos','Screenshots','Cajas'], slidesRango:[4,8], slidesDefault:6 },
+      A4: { id:'A4', nombre:'Hook IA', familia:'Ángulos', fotoDep:'ia', badge:'🤖 imagen IA + sólidos', defaultBg:'preset',
+            objetivos:['Vender','Educar','Motivacional'], formato:'4:5',
+            bg:'#0b0f14', fg:'#ffffff', accent:'#ef4444',
+            titleFont:"'Montserrat', sans-serif", bodyFont:"'Inter', sans-serif",
+            elementos:['Cajas','Screenshots','Íconos','Emoji','Overlay'], slidesRango:[3,6], slidesDefault:5 },
+      // ===== FAMILIA B · MARCA PERSONAL =====
+      B1: { id:'B1', nombre:'Hook texto', familia:'Marca Personal', fotoDep:'foto', badge:'📷 tus fotos', defaultBg:'preset',
+            objetivos:['Personal','Motivacional','Vender'], formato:'9:16',
+            bg:'#111827', fg:'#ffffff', accent:'#ffffff',
+            titleFont:"'Montserrat', sans-serif", bodyFont:"'Inter', sans-serif",
+            elementos:['Overlay','Cajas','Emoji','Scrim'], slidesRango:[4,7], slidesDefault:5 },
+      B2: { id:'B2', nombre:'Hook foto personal', familia:'Marca Personal', fotoDep:'foto', badge:'📷 tus fotos', defaultBg:'photo',
+            objetivos:['Personal','Vender','Motivacional'], formato:'9:16',
+            bg:'linear-gradient(160deg,#4a3b5a,#1e293b,#0f172a)', fg:'#ffffff', accent:'#ffffff',
+            titleFont:"'Inter', sans-serif", bodyFont:"'Inter', sans-serif",
+            elementos:['Overlay','Screenshots','Gráfico','Flechas','Emoji','Scrim'], slidesRango:[4,7], slidesDefault:6 },
+    };
+    const TYPE_ORDER = ['A1','A2','A3','A4','B1','B2'];
+
+    /* Mini-preview markup per type (the "wow" of the gallery) */
+    function typePreview(id){
+      const ph = (state.fotos && state.fotos[0]) ? `url('${state.fotos[0]}') center/cover` : null;
+      switch(id){
+        case 'A1': return `<div class="w-full h-full flex items-end justify-center pb-3 relative" style="background:${ph||'linear-gradient(160deg,#3a4a5a,#1e293b,#0f172a)'}">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+            <div class="relative text-white font-extrabold text-[12px]" style="text-shadow:0 1px 3px rgba(0,0,0,.6)">MIRA ESTO ↗</div></div>`;
+        case 'A2': return `<div class="w-full h-full flex flex-col items-center justify-center gap-1.5" style="background:${ph||'linear-gradient(160deg,#0f172a,#1e293b)'}">
+            <svg width="62" height="30" viewBox="0 0 62 30" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round"><path d="M2 26 L16 15 L28 20 L40 7 L60 3"/></svg>
+            <div class="text-white text-[10px] font-bold">el gráfico habla</div></div>`;
+        case 'A3': return `<div class="w-full h-full dot-grid flex flex-col items-center justify-center gap-1">
+            <div class="font-hand text-[15px]" style="color:#e11d48">Protocolo</div>
+            <svg width="52" height="20" viewBox="0 0 52 20" fill="none" stroke="#1f2937" stroke-width="1.5"><rect x="2" y="5" width="13" height="10"/><path d="M15 10 H26"/><rect x="26" y="5" width="13" height="10"/><path d="M39 10 H48"/></svg></div>`;
+        case 'A4': return `<div class="w-full h-full flex flex-col items-center justify-center gap-1" style="background:#0b0f14">
+            <div class="text-3xl">🤖</div><div class="text-white font-extrabold text-[10px] text-center px-2">MOSTRANDO MI PROCESO</div></div>`;
+        case 'B1': return `<div class="w-full h-full flex items-center justify-center px-3" style="background:#111827">
+            <div class="text-white font-extrabold text-[13px] text-center leading-tight">Hacer trading<br>es difícil</div></div>`;
+        case 'B2': return `<div class="w-full h-full flex items-end justify-center pb-3 relative" style="background:${ph||'linear-gradient(160deg,#4a3b5a,#1e293b,#0f172a)'}">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent"></div>
+            <div class="relative text-white font-bold text-[11px]">mi historia 📈</div></div>`;
+      }
+      return '';
+    }
+
+    /* ===================== STATE ===================== */
+    /* Banco de fotos oficial = carpeta de Drive de la usuaria.
+       En la app (Supabase Edge Function + Google Drive API) VELA LISTA y LEE las imágenes de esta carpeta.
+       El prototipo NO precarga fotos (son demasiadas): solo guarda la ruta como fuente del banco. */
+    const PHOTO_BANK = {
+      driveUrl: 'https://drive.google.com/drive/folders/1mIM9aeEG7m7XdJThVu_Phxfrv6OwNiOV',
+      driveId: '1mIM9aeEG7m7XdJThVu_Phxfrv6OwNiOV',
+      connected: true
+    };
+
+    const state = { objetivo:'Educar', tipo:null, guion:'', dividirRoles:true, fotos:[], slides:null, photoMode:'manual', fuente:'drive',
+                    deck:[], slideIndex:0, sel:null, fmt:'4:5' };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      renderGallery();
+      selectObjective('Educar');
+      updateAiPill();
+      const saved = loadState();
+      if(saved && saved.deck && saved.deck.length){ restoreState(saved); }
+    });
+    function nuevoCarrusel(){
+      if(!confirm('¿Empezar un carrusel nuevo? Se borrará el actual.')) return;
+      clearState();
+      state.tipo=null; state.deck=[]; state.sel=null; state.guion=''; state.slides=null; state.fotos=[]; state.fmt='4:5';
+      const gi=document.getElementById('guion-input'); if(gi) gi.value='';
+      const cb=document.getElementById('caption-box'); if(cb) cb.value='';
+      document.getElementById('generate-btn').disabled=true;
+      document.getElementById('generate-label').innerText='Elige un estilo para continuar';
+      renderGallery(); selectObjective('Educar'); switchStep(1);
+      showToast('Nuevo carrusel');
+    }
+
+    /* ===================== STEP NAV ===================== */
+    let currentStep = 1;
+    function switchStep(n){
+      currentStep = n;
+      [1,2,3].forEach(i => document.getElementById('step-'+i).classList.toggle('hidden', i!==n));
+      [1,2,3].forEach(i => {
+        const b = document.getElementById('nav-step-'+i);
+        b.classList.toggle('bg-rose-600', i===n);
+        b.classList.toggle('text-white', i===n);
+        b.classList.toggle('text-slate-400', i!==n);
+      });
+      if(n===2) renderEditor();
+      if(n===3) renderPreview();
+      lucide.createIcons();
+    }
+
+    /* ===================== OBJECTIVE ===================== */
+    function selectObjective(name){
+      state.objetivo = name;
+      document.querySelectorAll('.obj-btn').forEach(b => b.className = "obj-btn flex flex-col items-center gap-1 p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 text-xs font-medium text-slate-400 hover:border-slate-700");
+      const sel = document.getElementById('obj-'+name.toLowerCase());
+      if(sel) sel.className = "obj-btn flex flex-col items-center gap-1 p-2.5 rounded-xl border border-rose-500 bg-rose-500/10 text-xs font-medium text-white";
+      document.getElementById('reco-obj-label').innerText = name;
+      applyRecommendations();
+      touchSave();
+    }
+
+    /* ===================== TYPE GALLERY (2 familias) ===================== */
+    function renderGallery(){
+      const g = document.getElementById('type-gallery'); g.className=''; g.innerHTML='';
+      ['Ángulos','Marca Personal'].forEach(fam => {
+        const h=document.createElement('div'); h.className='text-[10px] font-bold text-amber-300/80 uppercase tracking-wider mt-1 mb-1.5'; h.innerText=fam; g.appendChild(h);
+        const grid=document.createElement('div'); grid.className='grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2';
+        TYPE_ORDER.filter(id=>PRESETS[id].familia===fam).forEach(id => {
+          const p = PRESETS[id]; const card=document.createElement('div'); card.id='type-'+id;
+          card.className="type-card relative cursor-pointer rounded-xl border border-slate-800 bg-slate-950 overflow-hidden";
+          card.onclick=()=>selectType(id);
+          card.innerHTML=`
+            <span class="reco-badge absolute top-1.5 left-1.5 z-10 items-center gap-0.5 text-[8px] font-bold bg-amber-400 text-black px-1.5 py-0.5 rounded-full">⭐ reco</span>
+            <div class="aspect-[4/5] w-full">${typePreview(id)}</div>
+            <div class="p-1.5 border-t border-slate-800">
+              <div class="text-[10px] font-bold text-white leading-tight truncate">${p.nombre}</div>
+              <div class="text-[8px] text-slate-400">${p.badge} · ${p.formato}</div>
+            </div>`;
+          grid.appendChild(card);
+        });
+        g.appendChild(grid);
+      });
+    }
+
+    function applyRecommendations(){
+      TYPE_ORDER.forEach(id => {
+        const card = document.getElementById('type-'+id);
+        const reco = PRESETS[id].objetivos.includes(state.objetivo);
+        card.classList.toggle('reco', reco);
+        card.classList.toggle('dimmed', !reco && state.tipo!==id);
+      });
+    }
+
+    function selectType(id){
+      state.tipo = id;
+      TYPE_ORDER.forEach(t => document.getElementById('type-'+t).classList.toggle('selected', t===id));
+      applyRecommendations();
+      // photo hint
+      const p = PRESETS[id];
+      const hint = document.getElementById('photo-hint');
+      const map = { 'sin-foto':'Este estilo no requiere fotos', 'capturas':'Este estilo usa tus capturas/gráficos', 'foto':'Este estilo usa tus fotos propias', 'ia':'La portada usa una imagen generada con IA; el resto sólidos' };
+      hint.innerText = map[p.fotoDep];
+      document.getElementById('photos-section').style.opacity = p.fotoDep==='sin-foto' ? '.5' : '1';
+      // slide count default from preset
+      state.slides = p.slidesDefault;
+      updateSlidesUI();
+      // enable generate
+      const btn = document.getElementById('generate-btn');
+      btn.disabled = false;
+      document.getElementById('generate-label').innerText = `Generar carrusel · ${p.nombre}`;
+      const warn = PRESETS[id].objetivos.includes(state.objetivo) ? '' : ' (combinación libre)';
+      showToast(`Estilo: ${p.nombre}${warn}`);
+      touchSave();
+    }
+
+    /* ===================== SCRIPT / PHOTOS ===================== */
+    function handleScriptUpload(e){
+      const f = e.target.files[0];
+      if(!f) return;
+      document.getElementById('upload-name').innerText = f.name;
+      if(f.name.endsWith('.txt') || f.name.endsWith('.md')){
+        const r = new FileReader();
+        r.onload = ev => { document.getElementById('guion-input').value = ev.target.result; state.guion = ev.target.result; };
+        r.readAsText(f);
+      } else { showToast('.docx se leerá con librería en la app (fase build)'); }
+    }
+    function handlePhotoUpload(e){
+      const files = [...e.target.files].filter(f => f.type.startsWith('image/'));
+      if(!files.length){ showToast('Esa carpeta no tiene imágenes'); return; }
+      files.forEach(file => {
+        const r = new FileReader();
+        r.onload = ev => { state.fotos.push(ev.target.result); refreshPhotos(); };
+        r.readAsDataURL(file);
+      });
+      showToast(`Carpeta cargada · ${files.length} fotos`);
+      touchSave();
+    }
+    function refreshPhotos(){
+      document.getElementById('photo-count').innerText = `${state.fotos.length} fotos`;
+      const t = document.getElementById('photo-thumbs'); t.innerHTML = '';
+      state.fotos.slice(0,6).forEach(src => { const i = document.createElement('img'); i.src = src; i.className = "w-8 h-8 object-cover rounded-md border border-slate-700 flex-shrink-0"; t.appendChild(i); });
+      renderGallery();               // photo-based previews (T2/T11) now show the real photos
+      if(state.tipo) document.getElementById('type-'+state.tipo).classList.add('selected');
+      applyRecommendations();
+    }
+    function setPhotoMode(m){
+      state.photoMode = m;
+      const on = "flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium rounded-lg px-2 py-1.5 border text-white";
+      const off = "flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium rounded-lg px-2 py-1.5 border border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700";
+      document.getElementById('mode-manual').className = m==='manual' ? on+" border-rose-500 bg-rose-500/10" : off;
+      document.getElementById('mode-ia').className     = m==='ia'     ? on+" border-amber-500 bg-amber-500/10" : off;
+      document.getElementById('ia-note').classList.toggle('hidden', m!=='ia');
+      touchSave();
+    }
+
+    /* ===================== SLIDE COUNT ===================== */
+    function updateSlidesUI(){
+      const p = PRESETS[state.tipo]; if(!p) return;
+      document.getElementById('slides-count').innerText = state.slides;
+      document.getElementById('slides-hint').innerText = `recomendado ${p.slidesRango[0]}–${p.slidesRango[1]} para ${p.nombre}`;
+      const pills = document.getElementById('slides-pills'); pills.innerHTML = '';
+      for(let n=p.slidesRango[0]; n<=p.slidesRango[1]; n++){
+        const b = document.createElement('button');
+        b.className = `w-6 h-6 rounded-md text-[10px] font-bold border ${n===state.slides?'border-rose-500 bg-rose-500/15 text-white':'border-slate-800 bg-slate-950 text-slate-500 hover:text-white'}`;
+        b.innerText = n; b.onclick = () => { state.slides = n; updateSlidesUI(); touchSave(); };
+        pills.appendChild(b);
+      }
+    }
+    function changeSlides(d){
+      const p = PRESETS[state.tipo]; if(!p){ showToast('Elige un estilo primero'); return; }
+      state.slides = Math.min(12, Math.max(2, (state.slides||p.slidesDefault)+d));
+      updateSlidesUI(); touchSave();
+    }
+
+    /* ===================== GENERATE -> EDITOR ===================== */
+    function generateAndProceed(){
+      if(!state.tipo){ showToast('Elige un estilo primero'); return; }
+      state.guion = document.getElementById('guion-input').value;
+      state.dividirRoles = document.getElementById('split-roles').checked;
+      state.slides = state.slides || PRESETS[state.tipo].slidesDefault;
+      state.fmt = PRESETS[state.tipo].formato;
+      state.deck = [];            // build fresh deck for this type + slide count
+      state.sel = null;
+      switchStep(2);
+      showToast(`Carrusel generado · ${PRESETS[state.tipo].nombre} · ${state.slides} slides`);
+    }
+
+    /* ===================== SAMPLE COPY ===================== */
+    function sampleTitle(id){ return {A1:'MIRA ESTO', A2:'El gráfico\nlo dice todo', A3:'Protocolo de encendido', A4:'MOSTRANDO MI PROCESO', B1:'Hacer trading\nes difícil', B2:'Mi historia'}[id] || 'Título'; }
+    function sampleBody(id){ return {A1:'Si tienes ese sueño de vivir del trading', A2:'lee el mercado antes de operar', A3:'3 pasos para empezar bien', A4:'te muestro cómo lo hago', B1:'pero se puede', B2:'gracias al trading 📈'}[id] || 'Cuerpo del slide'; }
+    function objetivoCTA(){ return {Educar:'Guarda este post 📌', Vender:'Comenta INFO 💬', Personal:'¿Te pasó igual?', Motivacional:'Empieza hoy 🔥'}[state.objetivo] || 'Comenta INFO'; }
+
+    /* ===================== DECK ===================== */
+    function textDefaults(p){
+      return { A1:{tx:50,ty:62,bx:50,by:78,al:'center'}, A2:{tx:50,ty:18,bx:50,by:30,al:'center'},
+               A3:{tx:50,ty:20,bx:50,by:34,al:'center'}, A4:{tx:50,ty:24,bx:50,by:80,al:'center'},
+               B1:{tx:50,ty:42,bx:50,by:56,al:'center'}, B2:{tx:50,ty:66,bx:50,by:82,al:'center'} }[p.id]
+             || {tx:50,ty:42,bx:50,by:55,al:'center'};
+    }
+    function mkText(role,text,font,color,size,x,y,al){ return {type:'text',role,text,font,color,size,fx:'none',x,y,rot:0,scale:1,opacity:1,flipX:1,locked:false,align:al,bold:false,under:false,upper:false,mark:false}; }
+    /* fondo por tipo y rol (fiel a los ejemplos) */
+    function bgFor(p, role){
+      switch(p.id){
+        case 'A1': return { mode:'photo', color:'#111111', photo:null, overlay:0.45 };
+        case 'A2': return { mode:'photo', color:'#111111', photo:null, overlay:0.40 };
+        case 'A3': return { mode:'preset', color:'#111111', photo:null, overlay:0 };            // cuadrícula libreta
+        case 'A4': return { mode:'color', color:'#0b0f14', photo:null, overlay:0 };
+        case 'B1': return { mode:'color', color:'#111827', photo:null, overlay:0 };
+        case 'B2': return { mode:'photo', color:'#111111', photo:null, overlay:0.45 };
+      }
+      return { mode:(p.defaultBg||'preset'), color:'#111111', photo:null, overlay:0 };
+    }
+    /* parsea el guión del usuario en bloques {title, body} (heurística; IA en la app) */
+    function parseGuion(txt){
+      if(!txt || !txt.trim()) return [];
+      const parts = txt.split(/\n\s*\n|\s*\n?---+\n?\s*/).map(s=>s.trim()).filter(Boolean);
+      return parts.map(block=>{
+        const lines = block.split('\n').map(s=>s.trim()).filter(Boolean);
+        if(lines.length>=2) return { title:lines[0], body:lines.slice(1).join('\n') };
+        const words = block.split(/\s+/);
+        if(words.length>9) return { title:words.slice(0,6).join(' '), body:block };
+        return { title:block, body:'' };
+      });
+    }
+    /* receta de slide por tipo + rol (cover/content/cta). ov = {title,body} del guión */
+    function slideRecipe(p, role, i, n, td, ov){
+      const bg = bgFor(p, role);
+      let title = ov ? ov.title : (role==='cover' ? sampleTitle(p.id) : (role==='cta' ? objetivoCTA() : ('Punto '+i)));
+      let body  = ov ? ov.body  : (role==='cover' ? sampleBody(p.id)  : (role==='cta' ? 'te explico cómo funciona 👇' : 'Desarrolla tu idea aquí…'));
+      const titleL = mkText('title', title, p.titleFont, p.accent, role==='cover'?36:26, td.tx, td.ty, td.al);
+      const bodyL  = mkText('body',  body,  p.bodyFont,  p.fg,     16,               td.bx, td.by, td.al);
+      const extras = [];
+      if(p.id==='A1' || p.id==='B2'){
+        titleL.bold=true; titleL.fx='sombra'; bodyL.fx='sombra';
+        if(role==='cover') extras.push(mkShape('flecha','Flechas',70,Math.min(92,td.ty+14),{color:'#ffffff',scale:1.1,rot:15}));
+        if(role==='content' && p.id==='B2') extras.push(mkShape('chart','Gráfico',50,42,{color:'#34d399',scale:1.3}));
+        if(role==='cta'){ if(!ov) titleL.text='Comenta "INFO"'; titleL.bold=true; titleL.color='#ffffff'; titleL.fx='fondo'; }
+      } else if(p.id==='A2'){
+        titleL.bold=true; titleL.fx='sombra';
+        if(role!=='cta') extras.push(mkShape('chart','Gráfico',50,58,{color:p.accent,scale:1.7}));
+      } else if(p.id==='A3'){
+        titleL.font="'Caveat', cursive"; titleL.color='#e11d48'; titleL.size = role==='cover'?42:34;
+        if(role==='content') extras.push(mkShape('diagrama','Diagrama',50,62,{color:'#1f2937',scale:1.5}));
+        if(role==='cta'){ if(!ov) titleL.text='Comenta "INFO"'; }
+      } else if(p.id==='A4'){
+        titleL.font="'Montserrat', sans-serif"; titleL.bold=true; titleL.upper=true; titleL.color='#ffffff';
+        if(role==='cta'){ if(!ov) titleL.text='Entra a OpenClaw'; titleL.upper=false; titleL.fx='fondo'; titleL.color='#ffffff'; }
+      } else if(p.id==='B1'){
+        titleL.font="'Montserrat', sans-serif"; titleL.bold=true; titleL.size = role==='cover'?40:28;
+      }
+      return { bg, layers:[titleL, bodyL, ...extras] };
+    }
+    function buildDeck(){
+      const p = PRESETS[state.tipo] || PRESETS.A1;
+      const td = textDefaults(p);
+      const blocks = parseGuion(state.guion);          // usa el GUIÓN real del usuario
+      const n = blocks.length ? blocks.length : (state.slides || p.slidesDefault);
+      state.deck = [];
+      for(let i=0;i<n;i++){
+        const role = i===0 ? 'cover' : (i===n-1 ? 'cta' : 'content');
+        state.deck.push(slideRecipe(p, role, i, n, td, blocks[i]));
+      }
+      // reparte las fotos del banco (Paso 1) a los slides con foto
+      if(state.fotos && state.fotos.length && (p.defaultBg==='photo' || bgFor(p,'cover').mode==='photo')){
+        state.deck.forEach((s,idx)=>{ if(s.bg.mode==='photo') s.bg.photo = state.fotos[idx % state.fotos.length]; });
+      }
+      state.slides = n; state.slideIndex = 0; state.sel = null;
+    }
+
+    /* ===================== EDITOR ===================== */
+    function renderEditor(){
+      const p = PRESETS[state.tipo] || PRESETS.A1;
+      if(!state.deck.length) buildDeck();
+      state.fmt = state.fmt || p.formato;
+      document.getElementById('editor-type-label').innerText = `${p.nombre} (${p.id}) · ${state.objetivo}`;
+      setFormatButtons(state.fmt);
+      renderElementLibrary(p);
+      renderCanvas(); renderThumbs(); renderLayers(); renderProps();
+      lucide.createIcons();
+    }
+
+    function setFormat(f){ state.fmt = f; setFormatButtons(f); renderCanvas(); touchSave(); }
+    function setFormatButtons(f){
+      document.getElementById('fmt-45').className  = 'px-2 py-0.5 rounded text-[11px] font-semibold ' + (f==='4:5' ? 'bg-rose-600 text-white' : 'text-slate-500');
+      document.getElementById('fmt-916').className = 'px-2 py-0.5 rounded text-[11px] font-semibold ' + (f==='9:16'? 'bg-rose-600 text-white' : 'text-slate-500');
+    }
+
+
+    function slideBgCss(p,s){ if(s.bg.mode==='color') return s.bg.color; if(s.bg.mode==='photo') return s.bg.photo?`url('${s.bg.photo}') center/cover`:p.bg; return p.bg; }
+    function renderCanvas(){
+      const p = PRESETS[state.tipo] || PRESETS.A1;
+      const s = state.deck[state.slideIndex];
+      const cv = document.getElementById('editor-canvas');
+      cv.style.aspectRatio = state.fmt==='9:16' ? '9/16' : '4/5';
+      const dot = (s.bg.mode==='preset' && p.id==='A3');
+      cv.className = "relative w-full max-w-[360px] rounded-2xl overflow-hidden canvas-glow border border-slate-700/80" + (dot?' dot-grid':'');
+      cv.style.background = dot ? '' : slideBgCss(p,s);
+      cv.innerHTML = '';
+      if(s.bg.overlay>0){ const ov=document.createElement('div'); ov.className='absolute inset-0 pointer-events-none'; ov.style.background=`rgba(0,0,0,${s.bg.overlay})`; ov.style.zIndex=1; cv.appendChild(ov); }
+      s.layers.forEach((l,i) => cv.appendChild(renderLayerNode(l,i)));
+    }
+    function lyTransform(l){ return `translate(-50%,-50%) rotate(${l.rot||0}deg) scale(${(l.scale||1)*(l.flipX||1)}, ${l.scale||1})`; }
+    function renderLayerNode(l,i){
+      const d = document.createElement('div'); d.id='ly-'+i;
+      d.className = 'absolute select-none ' + (l.locked?'cursor-not-allowed':'cursor-move');
+      d.style.left=l.x+'%'; d.style.top=l.y+'%'; d.style.transform=lyTransform(l); d.style.opacity=(l.opacity==null?1:l.opacity); d.style.zIndex=10+i;
+      if(l.type==='text'){
+        const t=document.createElement('div'); t.id='ly-txt-'+i; t.contentEditable='false';
+        t.style.fontFamily=l.font; t.style.color=l.color; t.style.fontSize=(l.size||16)+'px';
+        t.style.fontWeight=l.bold?'900':'400'; t.style.textDecoration=l.under?'underline':'none';
+        t.style.textTransform=l.upper?'uppercase':'none'; t.style.textAlign=l.align||'center'; t.style.maxWidth='300px';
+        t.className='outline-none leading-tight whitespace-pre-line'; t.innerText=l.text;
+        applyFx(t,l.fx,PRESETS[state.tipo].accent);
+        if(l.mark){ t.style.background='rgba(250,204,21,.9)'; t.style.color='#111'; t.style.padding='0 6px'; }
+        t.ondblclick=(e)=>{ e.stopPropagation(); enterEdit(i); };
+        d.appendChild(t);
+      } else if(l.type==='photo'){
+        const img=document.createElement('img'); img.src=l.src; img.draggable=false; img.style.width=(l.w||170)+'px'; img.style.height='auto'; img.style.borderRadius=(l.radius||0)+'px'; img.className='block shadow-lg'; d.appendChild(img);
+      } else { d.innerHTML = elMarkup(l); }
+      if(!l.locked) d.onmousedown=(e)=>startDrag(e,i);
+      d.onclick=(e)=>{ e.stopPropagation(); selectLayer(i); };
+      if(state.sel===i){
+        const fr=document.createElement('div'); fr.className='absolute -inset-2 border-2 border-rose-500 rounded pointer-events-none'; d.appendChild(fr);
+        if(!l.locked) addHandles(d,i);
+      }
+      return d;
+    }
+    function addHandles(d,i){
+      [['-top-2 -left-2'],['-top-2 -right-2'],['-bottom-2 -left-2'],['-bottom-2 -right-2']].forEach(([pos])=>{ const h=document.createElement('span'); h.className='absolute '+pos+' w-3 h-3 bg-white border border-rose-500 rounded-full cursor-nwse-resize'; h.style.pointerEvents='auto'; h.onmousedown=(e)=>{ e.stopPropagation(); startResize(e,i); }; d.appendChild(h); });
+      const rh=document.createElement('div'); rh.className='absolute left-1/2 -bottom-9 -translate-x-1/2 flex flex-col items-center'; rh.style.pointerEvents='auto';
+      rh.innerHTML='<div class="w-px h-4 bg-rose-500"></div><div class="w-5 h-5 rounded-full bg-white border border-rose-500 flex items-center justify-center cursor-grab text-rose-500 text-[11px]">↻</div>';
+      rh.onmousedown=(e)=>{ e.stopPropagation(); startRotate(e,i); }; d.appendChild(rh);
+    }
+    function enterEdit(i){
+      const t=document.getElementById('ly-txt-'+i); if(!t) return;
+      t.contentEditable='true'; const d=document.getElementById('ly-'+i); if(d) d.onmousedown=null; t.focus();
+      t.onblur=()=>{ state.deck[state.slideIndex].layers[i].text=t.innerText; renderCanvas(); renderLayers(); renderProps(); touchSave(); };
+    }
+
+    /* ---- element library ---- */
+    function elIcon(label){ return {'Texto':'T','Foto':'🖼','Gráfico':'📈','Flechas':'↗','Doodles':'〰','Diagramas':'▽','Sticky':'🗒','Insets':'🖼','Screenshots':'🖼','Screenshot plataforma':'📱','Widget P&L':'📈','Íconos':'★','Emojis':'😍','Emoji':'😍','Cajas':'▭','Anotaciones':'✎','Marca':'@','Ventana macOS':'🗔','Cursor':'|','Overlay':'▤','Scrim':'▤'}[label] || '◆'; }
+    function renderElementLibrary(p){
+      const lib = document.getElementById('element-library'); lib.innerHTML = '';
+      [['Texto','addTextLayer()'],['Foto','addPhotoLayer()']].forEach(([label,fn])=>{
+        const b=document.createElement('button');
+        b.className="p-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-amber-500 text-[10px] text-white flex flex-col items-center gap-1 text-center";
+        b.innerHTML=`<span class="text-base">${elIcon(label)}</span>${label}`; b.setAttribute('onclick',fn); lib.appendChild(b);
+      });
+      p.elementos.forEach(label => {
+        const b = document.createElement('button');
+        b.className = "p-2 rounded-lg bg-slate-950 border border-slate-800 hover:border-amber-500 text-[10px] text-slate-300 flex flex-col items-center gap-1 text-center";
+        b.innerHTML = `<span class="text-base">${elIcon(label)}</span>${label}`;
+        b.onclick = () => addShape(label);
+        lib.appendChild(b);
+      });
+    }
+    const LABEL2KIND = {'Flechas':'flecha','Anotaciones':'flecha','Doodles':'doodle','Diagramas':'diagrama','Gráfico':'chart','Sticky':'sticky','Insets':'inset','Screenshots':'screenshot','Screenshot plataforma':'screenshot','Widget P&L':'widget','Íconos':'icono','Emojis':'emoji','Emoji':'emoji','Cajas':'caja','Marca':'marca','Ventana macOS':'ventana','Cursor':'cursor','Overlay':'caja','Scrim':'scrim'};
+    function mkShape(kind,label,x,y,o){ o=o||{}; return {type:'shape',kind,label,x,y,scale:o.scale||1,rot:o.rot||0,stroke:o.stroke||3,opacity:o.opacity==null?1:o.opacity,flipX:1,locked:false,color:o.color||'#ffffff'}; }
+    function addShape(label){
+      const p = PRESETS[state.tipo]; const s = state.deck[state.slideIndex];
+      s.layers.push({ type:'shape', kind:LABEL2KIND[label]||'chip', label, x:50, y:55, scale:1, rot:0, stroke:3, opacity:1, flipX:1, locked:false, color:p.accent });
+      state.sel = s.layers.length-1; renderCanvas(); renderLayers(); renderProps(); showToast(`+ ${label}`); touchSave();
+    }
+    function addTextLayer(){
+      const p = PRESETS[state.tipo]; const s = state.deck[state.slideIndex];
+      s.layers.push(mkText('free','Texto nuevo',p.titleFont,p.accent,26,50,50,'center'));
+      state.sel = s.layers.length-1; renderCanvas(); renderLayers(); renderProps(); showToast('+ Texto'); touchSave();
+    }
+    function addPhotoFromSrc(src){ const s=state.deck[state.slideIndex]; s.layers.push({type:'photo', label:'Foto', src, x:50, y:50, w:170, radius:8, scale:1, rot:0, opacity:1, flipX:1, locked:false}); state.sel=s.layers.length-1; renderCanvas(); renderLayers(); renderProps(); showToast('+ Foto'); touchSave(); }
+    function addPhotoLayer(){ if(state.fotos && state.fotos.length){ openBankModal(addPhotoFromSrc); } else { document.getElementById('layer-photo-input').click(); } }
+    function onLayerPhoto(e){ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=ev=>addPhotoFromSrc(ev.target.result); r.readAsDataURL(f); e.target.value=''; }
+    /* selector visual del banco de fotos (carpeta Drive / subidas del Paso 1) */
+    let bankCb=null;
+    function openBankModal(cb){
+      bankCb=cb; const m=document.getElementById('bank-modal'); const g=document.getElementById('bank-grid'); const empty=document.getElementById('bank-empty');
+      g.innerHTML='';
+      if(!state.fotos || !state.fotos.length){ empty.classList.remove('hidden'); }
+      else { empty.classList.add('hidden'); state.fotos.forEach(src=>{ const im=document.createElement('img'); im.src=src; im.className='w-full aspect-square object-cover rounded-lg border border-slate-700 cursor-pointer hover:border-amber-500'; im.onclick=()=>{ const cb=bankCb; closeBank(); if(cb) cb(src); }; g.appendChild(im); }); }
+      m.classList.remove('hidden'); m.classList.add('flex'); lucide.createIcons();
+    }
+    function closeBank(){ const m=document.getElementById('bank-modal'); m.classList.add('hidden'); m.classList.remove('flex'); bankCb=null; }
+    function elMarkup(el){
+      const c = el.color || '#ffffff';
+      const w = el.stroke || 3;
+      switch(el.kind){
+        case 'flecha': return `<svg width="60" height="40" viewBox="0 0 60 40" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round"><path d="M5 32 Q30 4 52 18"/><path d="M43 10 L54 18 L44 26"/></svg>`;
+        case 'doodle': return `<svg width="70" height="22" viewBox="0 0 70 22" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round"><path d="M3 11 q9 -11 18 0 t18 0 t18 0"/></svg>`;
+        case 'diagrama': return `<svg width="72" height="50" viewBox="0 0 72 50" fill="none" stroke="${c}" stroke-width="${w}"><path d="M4 6 H68 L46 44 H26 Z"/></svg>`;
+        case 'chart': return `<svg width="120" height="60" viewBox="0 0 120 60" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"><path d="M4 52 L28 30 L48 40 L72 14 L116 6"/></svg>`;
+        case 'sticky': return `<div style="background:#fde68a;color:#78350f" class="w-16 h-16 shadow-md -rotate-3 p-1.5 text-[10px] font-bold font-caveat">nota…</div>`;
+        case 'inset': case 'screenshot': return `<div class="w-24 h-16 rounded-md bg-slate-300 border-2 border-white shadow-lg flex items-center justify-center text-[8px] text-slate-600">captura</div>`;
+        case 'widget': return `<div class="bg-black/85 rounded-lg px-3 py-1.5 text-center shadow-lg"><div class="text-emerald-400 font-mono-v font-bold text-sm">+7,848.00</div><div class="text-slate-400 font-mono-v text-[8px]">Δ 18,470 (0.43%)</div></div>`;
+        case 'icono': return `<div style="border-color:${c};color:${c}" class="w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold">★</div>`;
+        case 'emoji': return `<div class="text-3xl">😍</div>`;
+        case 'caja': return `<div class="bg-white text-black text-[11px] font-extrabold px-3 py-1 rounded-full shadow">texto</div>`;
+        case 'marca': return `<div class="flex items-center gap-1.5 bg-white/90 rounded-full pl-1 pr-2 py-0.5"><span class="w-4 h-4 rounded-full vela-flame"></span><span class="text-[9px] font-bold text-slate-800">@handle</span></div>`;
+        case 'cursor': return `<div style="color:${c}" class="font-system text-2xl blink">|</div>`;
+        case 'ventana': return `<div class="w-28 rounded-md bg-white shadow border border-slate-300"><div class="flex gap-1 px-1.5 py-1 bg-slate-100"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span></div><div class="p-2 text-[8px] text-slate-600 font-system">texto…</div></div>`;
+        case 'scrim': return `<div class="w-32 h-20 rounded" style="background:linear-gradient(to top,rgba(0,0,0,.6),transparent)"></div>`;
+        default: return `<div class="bg-slate-800 text-white text-[9px] px-2 py-1 rounded">${el.label||'elemento'}</div>`;
+      }
+    }
+    /* ---- drag ---- */
+    let dragging = null;
+    function startDrag(e, idx){
+      e.preventDefault(); selectLayer(idx);
+      const rect = document.getElementById('editor-canvas').getBoundingClientRect();
+      dragging = { idx, rect };
+      document.addEventListener('mousemove', onDrag); document.addEventListener('mouseup', endDrag);
+    }
+    function onDrag(e){
+      if(!dragging) return; const { rect, idx } = dragging;
+      let x=((e.clientX-rect.left)/rect.width)*100, y=((e.clientY-rect.top)/rect.height)*100;
+      x=Math.max(0,Math.min(100,x)); y=Math.max(0,Math.min(100,y));
+      const l=state.deck[state.slideIndex].layers[idx]; l.x=x; l.y=y;
+      const n=document.getElementById('ly-'+idx); if(n){ n.style.left=x+'%'; n.style.top=y+'%'; }
+    }
+    function endDrag(){ dragging=null; document.removeEventListener('mousemove',onDrag); document.removeEventListener('mouseup',endDrag); touchSave(); }
+
+    /* ---- resize + rotate (Canva-style handles) ---- */
+    function lyCenter(i){
+      const cv=document.getElementById('editor-canvas').getBoundingClientRect(); const l=state.deck[state.slideIndex].layers[i];
+      return { cx: cv.left + (l.x/100)*cv.width, cy: cv.top + (l.y/100)*cv.height };
+    }
+    let resizing=null;
+    function startResize(e,i){
+      e.preventDefault(); const {cx,cy}=lyCenter(i); const l=state.deck[state.slideIndex].layers[i];
+      resizing={ i, cx, cy, d0:Math.hypot(e.clientX-cx,e.clientY-cy)||1, s0:l.scale||1 };
+      document.addEventListener('mousemove',onResize); document.addEventListener('mouseup',endResize);
+    }
+    function onResize(e){
+      if(!resizing) return; const {i,cx,cy,d0,s0}=resizing;
+      const sc=Math.max(0.3, Math.min(4, s0*(Math.hypot(e.clientX-cx,e.clientY-cy)/d0)));
+      const l=state.deck[state.slideIndex].layers[i]; l.scale=sc;
+      const n=document.getElementById('ly-'+i); if(n) n.style.transform=lyTransform(l);
+    }
+    function endResize(){ resizing=null; document.removeEventListener('mousemove',onResize); document.removeEventListener('mouseup',endResize); renderProps(); touchSave(); }
+    let rotating=null;
+    function startRotate(e,i){
+      e.preventDefault(); const {cx,cy}=lyCenter(i); rotating={i,cx,cy};
+      document.addEventListener('mousemove',onRotate); document.addEventListener('mouseup',endRotate);
+    }
+    function onRotate(e){
+      if(!rotating) return; const {i,cx,cy}=rotating;
+      let ang=Math.round(Math.atan2(e.clientY-cy,e.clientX-cx)*180/Math.PI + 90);
+      const l=state.deck[state.slideIndex].layers[i]; l.rot=ang;
+      const n=document.getElementById('ly-'+i); if(n) n.style.transform=lyTransform(l);
+      updateCtxRot(ang);
+    }
+    function endRotate(){ rotating=null; document.removeEventListener('mousemove',onRotate); document.removeEventListener('mouseup',endRotate); renderProps(); touchSave(); }
+
+    /* ---- selection ---- */
+    function selectLayer(i){ state.sel = i; renderCanvas(); renderLayers(); renderProps(); }
+    function curLayer(){ return (state.sel!=null && state.deck[state.slideIndex]) ? state.deck[state.slideIndex].layers[state.sel] : null; }
+    function renderProps(){ renderCtxToolbar(); renderRightPanel(); }
+    function swatches(arr,fn){ return arr.map(c=>`<button onclick="${fn}('${c}')" class="w-6 h-6 rounded-full border border-slate-700" style="background:${c}"></button>`).join(''); }
+
+    function ctxCommon(l){ return `<button onclick="flipSel()" class="p-1.5 rounded hover:bg-slate-800 text-slate-300" title="Voltear"><i data-lucide="flip-horizontal" class="w-3.5 h-3.5"></i></button>
+      <button onclick="dupSel()" class="p-1.5 rounded hover:bg-slate-800 text-slate-300" title="Duplicar"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+      <button onclick="lockSel()" class="p-1.5 rounded hover:bg-slate-800 text-slate-300" title="Bloquear"><i data-lucide="${l.locked?'lock':'lock-open'}" class="w-3.5 h-3.5"></i></button>
+      <button onclick="moveLayer(1)" class="p-1.5 rounded hover:bg-slate-800 text-slate-300" title="Subir capa"><i data-lucide="arrow-up" class="w-3.5 h-3.5"></i></button>
+      <button onclick="moveLayer(-1)" class="p-1.5 rounded hover:bg-slate-800 text-slate-300" title="Bajar capa"><i data-lucide="arrow-down" class="w-3.5 h-3.5"></i></button>
+      <span class="w-px h-5 bg-slate-800 mx-1"></span><button onclick="delSel()" class="p-1.5 rounded hover:bg-rose-900/50 text-rose-300" title="Eliminar"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>`; }
+
+    /* ---- Canva-style contextual toolbar (top) ---- */
+    function renderCtxToolbar(){
+      const bar = document.getElementById('ctx-toolbar'); const l = curLayer();
+      if(!l){ bar.className = 'hidden'; bar.innerHTML=''; return; }
+      bar.className = 'flex bg-slate-900 border border-slate-800 rounded-2xl px-2 py-1.5 mb-3 items-center gap-1 flex-wrap';
+      const p = PRESETS[state.tipo] || PRESETS.A1; const div = '<span class="w-px h-5 bg-slate-800 mx-1"></span>';
+      if(l.type==='text'){
+        bar.innerHTML = `<span class="text-[10px] text-slate-500 px-1">${l.role==='title'?'Título':l.role==='body'?'Cuerpo':'Texto'}</span>
+          <select onchange="setFont(this.value)" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white">
+            <option value="${p.titleFont}" ${l.font===p.titleFont?'selected':''}>Título</option><option value="${p.bodyFont}" ${l.font===p.bodyFont?'selected':''}>Cuerpo</option>
+            <option value="'Caveat',cursive">Manuscrita</option><option value="'Inter',sans-serif">Sans</option>
+            <option value="'Montserrat',sans-serif">Display</option><option value="-apple-system,system-ui">Sistema</option></select>
+          <button onclick="setSize(-3)" class="w-6 h-6 rounded hover:bg-slate-800 text-white">−</button><button onclick="setSize(3)" class="w-6 h-6 rounded hover:bg-slate-800 text-white">+</button>
+          ${div}<div class="flex gap-1">${swatches([p.accent,p.fg,'#ffffff','#facc15','#ef4444','#22c55e'],'setColor')}</div>
+          ${div}<button onclick="toggleEmph('bold')" class="w-7 h-7 rounded hover:bg-slate-800 text-white font-bold ${l.bold?'bg-slate-700':''}">B</button>
+          <button onclick="toggleEmph('under')" class="w-7 h-7 rounded hover:bg-slate-800 text-white underline ${l.under?'bg-slate-700':''}">U</button>
+          <button onclick="toggleEmph('mayus')" class="w-7 h-7 rounded hover:bg-slate-800 text-white text-[11px] ${l.upper?'bg-slate-700':''}">AA</button>
+          <button onclick="toggleEmph('mark')" class="w-7 h-7 rounded hover:bg-slate-800 ${l.mark?'bg-slate-700':''}" title="Resaltador">🖍</button>
+          ${div}<button onclick="setAlign('left')" class="w-7 h-7 rounded hover:bg-slate-800 text-white"><i data-lucide="align-left" class="w-3.5 h-3.5 inline"></i></button>
+          <button onclick="setAlign('center')" class="w-7 h-7 rounded hover:bg-slate-800 text-white"><i data-lucide="align-center" class="w-3.5 h-3.5 inline"></i></button>
+          <button onclick="setAlign('right')" class="w-7 h-7 rounded hover:bg-slate-800 text-white"><i data-lucide="align-right" class="w-3.5 h-3.5 inline"></i></button>
+          ${div}<span class="text-[10px] text-slate-400">Efecto</span><select onchange="setFx(this.value)" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white">${fxOptions(l.fx||'none')}</select>
+          ${div}<span class="text-[10px] text-slate-400">Rotar</span><input id="ctx-rot" type="number" value="${Math.round(l.rot||0)}" oninput="setRot(this.value)" class="w-12 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[11px] text-white">
+          ${div}${ctxCommon(l)}`;
+      } else if(l.type==='photo'){
+        bar.innerHTML = `<span class="text-[10px] text-slate-500 px-1">Foto</span>
+          <span class="text-[10px] text-slate-400">Opac.</span><input type="range" min="0.1" max="1" step="0.05" value="${l.opacity==null?1:l.opacity}" oninput="setOpacity(this.value)" class="w-16 accent-rose-500">
+          ${div}<span class="text-[10px] text-slate-400">Redondez</span><input type="range" min="0" max="40" step="1" value="${l.radius||0}" oninput="setRadius(this.value)" class="w-16 accent-rose-500">
+          ${div}<span class="text-[10px] text-slate-400">Rotar</span><input id="ctx-rot" type="number" value="${Math.round(l.rot||0)}" oninput="setRot(this.value)" class="w-12 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[11px] text-white">
+          ${div}${ctxCommon(l)}`;
+      } else {
+        const isLine = ['flecha','doodle','diagrama'].includes(l.kind);
+        bar.innerHTML = `<span class="text-[10px] text-slate-500 px-1">${l.label}</span>
+          <div class="flex gap-1">${swatches(['#ffffff',p.accent,'#facc15','#ef4444','#22c55e','#111111'],'setColor')}</div>
+          ${isLine ? div+`<span class="text-[10px] text-slate-400">Grosor</span><input type="range" min="1" max="10" step="0.5" value="${l.stroke||3}" oninput="setStroke(this.value)" class="w-16 accent-rose-500">` : ''}
+          ${div}<span class="text-[10px] text-slate-400">Rotar</span><input id="ctx-rot" type="number" value="${Math.round(l.rot||0)}" oninput="setRot(this.value)" class="w-12 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[11px] text-white">
+          ${div}<span class="text-[10px] text-slate-400">Opac.</span><input type="range" min="0.1" max="1" step="0.05" value="${l.opacity==null?1:l.opacity}" oninput="setOpacity(this.value)" class="w-14 accent-rose-500">
+          ${div}${ctxCommon(l)}`;
+      }
+      lucide.createIcons();
+    }
+
+    /* ---- right inspector ---- */
+    function alignBlock(){ return `<div><span class="text-slate-500">Alinear al lienzo</span><div class="grid grid-cols-3 gap-1 mt-1">
+      <button onclick="alignSel('h','l')" class="py-1 rounded bg-slate-950 border border-slate-800 text-slate-300 text-[10px]">Izq</button>
+      <button onclick="alignSel('h','c')" class="py-1 rounded bg-slate-950 border border-slate-800 text-slate-300 text-[10px]">Centro</button>
+      <button onclick="alignSel('h','r')" class="py-1 rounded bg-slate-950 border border-slate-800 text-slate-300 text-[10px]">Der</button>
+      <button onclick="alignSel('v','t')" class="py-1 rounded bg-slate-950 border border-slate-800 text-slate-300 text-[10px]">Arriba</button>
+      <button onclick="alignSel('v','m')" class="py-1 rounded bg-slate-950 border border-slate-800 text-slate-300 text-[10px]">Medio</button>
+      <button onclick="alignSel('v','b')" class="py-1 rounded bg-slate-950 border border-slate-800 text-slate-300 text-[10px]">Abajo</button></div></div>`; }
+    function arrangeBlock(l){ return `<div class="grid grid-cols-2 gap-1.5 pt-1">
+      <button onclick="flipSel()" class="px-2 py-1.5 rounded bg-slate-950 border border-slate-800 text-slate-200 text-[10px]"><i data-lucide="flip-horizontal" class="w-3 h-3 inline"></i> Voltear</button>
+      <button onclick="dupSel()" class="px-2 py-1.5 rounded bg-slate-950 border border-slate-800 text-slate-200 text-[10px]"><i data-lucide="copy" class="w-3 h-3 inline"></i> Duplicar</button>
+      <button onclick="moveLayer(1)" class="px-2 py-1.5 rounded bg-slate-950 border border-slate-800 text-slate-200 text-[10px]"><i data-lucide="arrow-up" class="w-3 h-3 inline"></i> Subir</button>
+      <button onclick="moveLayer(-1)" class="px-2 py-1.5 rounded bg-slate-950 border border-slate-800 text-slate-200 text-[10px]"><i data-lucide="arrow-down" class="w-3 h-3 inline"></i> Bajar</button>
+      <button onclick="lockSel()" class="px-2 py-1.5 rounded bg-slate-950 border border-slate-800 text-slate-200 text-[10px]"><i data-lucide="${l.locked?'lock':'lock-open'}" class="w-3 h-3 inline"></i> ${l.locked?'Desbloq.':'Bloquear'}</button>
+      <button onclick="delSel()" class="px-2 py-1.5 rounded bg-rose-950/60 border border-rose-800 text-rose-300 text-[10px]"><i data-lucide="trash-2" class="w-3 h-3 inline"></i> Eliminar</button></div>`; }
+    function renderRightPanel(){
+      const p = PRESETS[state.tipo] || PRESETS.A1; const box = document.getElementById('editor-props'); const l = curLayer();
+      if(l && l.type==='text'){
+        box.innerHTML = `<p class="text-white font-semibold">Texto</p>
+          <div><span class="text-slate-500">Fuente</span><select onchange="setFont(this.value)" class="w-full mt-1 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-white">
+            <option value="${p.titleFont}">Título del estilo</option><option value="${p.bodyFont}">Cuerpo del estilo</option>
+            <option value="'Caveat',cursive">Manuscrita</option><option value="'Inter',sans-serif">Sans</option>
+            <option value="'Montserrat',sans-serif">Display</option><option value="-apple-system,'SF Pro Display',system-ui">Sistema</option></select></div>
+          <div class="flex items-center gap-2"><span class="text-slate-500">Tamaño</span><button onclick="setSize(-3)" class="w-6 h-6 rounded bg-slate-950 border border-slate-800 text-white">−</button><button onclick="setSize(3)" class="w-6 h-6 rounded bg-slate-950 border border-slate-800 text-white">+</button></div>
+          <div><span class="text-slate-500">Color</span><div class="flex gap-1.5 mt-1">${swatches([p.accent,p.fg,'#ffffff','#facc15','#ef4444','#22c55e'],'setColor')}</div></div>
+          <div><span class="text-slate-500">Efecto</span><select onchange="setFx(this.value)" class="w-full mt-1 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-white">${fxOptions(l.fx||'none')}</select></div>
+          <div><span class="text-slate-500">Rotación · <span id="rp-rot">${Math.round(l.rot||0)}</span>°</span><input type="range" min="0" max="360" value="${l.rot||0}" oninput="setRot(this.value)" class="w-full accent-rose-500"></div>
+          <div><span class="text-slate-500">Opacidad</span><input type="range" min="0.1" max="1" step="0.05" value="${l.opacity==null?1:l.opacity}" oninput="setOpacity(this.value)" class="w-full accent-rose-500"></div>
+          ${alignBlock()} ${arrangeBlock(l)}
+          <p class="text-[10px] text-slate-500">Doble clic en el texto para editarlo · arrástralo para moverlo.</p>`;
+      } else if(l && l.type==='photo'){
+        box.innerHTML = `<p class="text-white font-semibold">Foto</p>
+          <div><span class="text-slate-500">Tamaño</span><input type="range" min="0.3" max="4" step="0.1" value="${l.scale}" oninput="setScale(this.value)" class="w-full accent-rose-500"></div>
+          <div><span class="text-slate-500">Rotación · <span id="rp-rot">${Math.round(l.rot||0)}</span>°</span><input type="range" min="0" max="360" value="${l.rot||0}" oninput="setRot(this.value)" class="w-full accent-rose-500"></div>
+          <div><span class="text-slate-500">Opacidad</span><input type="range" min="0.1" max="1" step="0.05" value="${l.opacity==null?1:l.opacity}" oninput="setOpacity(this.value)" class="w-full accent-rose-500"></div>
+          <div><span class="text-slate-500">Redondez</span><input type="range" min="0" max="40" value="${l.radius||0}" oninput="setRadius(this.value)" class="w-full accent-rose-500"></div>
+          ${alignBlock()} ${arrangeBlock(l)}`;
+      } else if(l){
+        const isLine = ['flecha','doodle','diagrama'].includes(l.kind);
+        box.innerHTML = `<p class="text-white font-semibold">${l.label}</p>
+          <div><span class="text-slate-500">Tamaño</span><input type="range" min="0.3" max="3" step="0.1" value="${l.scale}" oninput="setScale(this.value)" class="w-full accent-rose-500"></div>
+          <div><span class="text-slate-500">Rotación · <span id="rp-rot">${Math.round(l.rot||0)}</span>°</span><input type="range" min="0" max="360" value="${l.rot||0}" oninput="setRot(this.value)" class="w-full accent-rose-500"></div>
+          ${isLine ? `<div><span class="text-slate-500">Grosor</span><input type="range" min="1" max="10" step="0.5" value="${l.stroke||3}" oninput="setStroke(this.value)" class="w-full accent-rose-500"></div>`:''}
+          <div><span class="text-slate-500">Opacidad</span><input type="range" min="0.1" max="1" step="0.05" value="${l.opacity==null?1:l.opacity}" oninput="setOpacity(this.value)" class="w-full accent-rose-500"></div>
+          <div><span class="text-slate-500">Color</span><div class="flex gap-1.5 mt-1">${swatches(['#ffffff',p.accent,'#facc15','#ef4444','#22c55e','#111111'],'setColor')}</div></div>
+          ${alignBlock()} ${arrangeBlock(l)}`;
+      } else {
+        const s = state.deck[state.slideIndex]; const bg = s.bg;
+        box.innerHTML = `<p class="text-white font-semibold">Fondo del slide</p>
+          <div class="grid grid-cols-3 gap-1">
+            <button onclick="setBgMode('preset')" class="py-1 rounded text-[10px] border ${bg.mode==='preset'?'border-rose-500 bg-rose-500/10 text-white':'border-slate-800 bg-slate-950 text-slate-400'}">Preset</button>
+            <button onclick="setBgMode('color')" class="py-1 rounded text-[10px] border ${bg.mode==='color'?'border-rose-500 bg-rose-500/10 text-white':'border-slate-800 bg-slate-950 text-slate-400'}">Color</button>
+            <button onclick="setBgMode('photo')" class="py-1 rounded text-[10px] border ${bg.mode==='photo'?'border-rose-500 bg-rose-500/10 text-white':'border-slate-800 bg-slate-950 text-slate-400'}">Foto</button></div>
+          ${bg.mode==='color'?`<div class="flex items-center gap-2 flex-wrap"><input type="color" value="${bg.color}" oninput="setBgColor(this.value)" class="w-8 h-8 bg-transparent border-none cursor-pointer">${swatches(['#0a0a0a','#111111','#f1f1ef','#faf9f5','#1e293b','#7c5a3b'],'setBgColor')}</div>`:''}
+          ${bg.mode==='photo'?`<button onclick="uploadBgPhoto()" class="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-800 text-slate-300 hover:border-amber-500 text-[11px]"><i data-lucide="upload" class="w-3 h-3 inline"></i> Subir foto de fondo</button><button onclick="pickPhoto()" class="w-full mt-1 px-2 py-1.5 rounded bg-slate-950 border border-slate-800 text-slate-300 hover:border-amber-500 text-[11px]"><i data-lucide="image" class="w-3 h-3 inline"></i> Del banco de Drive</button>${bg.photo?`<button onclick="clearBgPhoto()" class="w-full mt-1 px-2 py-1 rounded text-rose-300 text-[10px]">Quitar foto</button>`:''}`:''}
+          <div><span class="text-slate-500">Oscurecer · ${Math.round(bg.overlay*100)}%</span><input type="range" min="0" max="0.8" step="0.05" value="${bg.overlay}" oninput="setOverlay(this.value)" class="w-full accent-rose-500"></div>
+          <div class="pt-2 border-t border-slate-800 flex justify-between"><span>Formato</span><span class="text-slate-200">${state.fmt}</span></div>
+          <div class="flex justify-between"><span>Nº slides</span><span class="text-slate-200">${state.deck.length}</span></div>
+          <p class="text-[10px] text-slate-500">Toca cualquier capa para editarla.</p>`;
+      }
+      lucide.createIcons();
+    }
+    /* setters (operan sobre la capa seleccionada) */
+    function setFont(f){ const l=curLayer(); if(l){ l.font=f; renderCanvas(); touchSave(); } }
+    function setSize(d){ const l=curLayer(); if(l&&l.type==='text'){ l.size=Math.max(8,(l.size||16)+d); renderCanvas(); renderProps(); touchSave(); } }
+    function setColor(c){ const l=curLayer(); if(l){ l.color=c; renderCanvas(); touchSave(); } }
+    function setAlign(a){ const l=curLayer(); if(l&&l.type==='text'){ l.align=a; renderCanvas(); touchSave(); } }
+    function toggleEmph(kind){ const l=curLayer(); if(!l||l.type!=='text')return; if(kind==='bold')l.bold=!l.bold; if(kind==='under')l.under=!l.under; if(kind==='mayus')l.upper=!l.upper; if(kind==='mark')l.mark=!l.mark; renderCanvas(); renderProps(); touchSave(); }
+    function setFx(v){ const l=curLayer(); if(l&&l.type==='text'){ l.fx=v; renderCanvas(); touchSave(); } }
+    function setRot(v){ const l=curLayer(); if(!l)return; l.rot=+v; const n=document.getElementById('ly-'+state.sel); if(n)n.style.transform=lyTransform(l); const r=document.getElementById('rp-rot'); if(r)r.innerText=Math.round(v); touchSave(); }
+    function setStroke(v){ const l=curLayer(); if(l){ l.stroke=+v; renderCanvas(); touchSave(); } }
+    function setOpacity(v){ const l=curLayer(); if(l){ l.opacity=+v; const n=document.getElementById('ly-'+state.sel); if(n)n.style.opacity=v; touchSave(); } }
+    function setScale(v){ const l=curLayer(); if(l){ l.scale=+v; const n=document.getElementById('ly-'+state.sel); if(n)n.style.transform=lyTransform(l); touchSave(); } }
+    function setRadius(v){ const l=curLayer(); if(l&&l.type==='photo'){ l.radius=+v; renderCanvas(); touchSave(); } }
+    function flipSel(){ const l=curLayer(); if(l){ l.flipX=(l.flipX||1)*-1; const n=document.getElementById('ly-'+state.sel); if(n)n.style.transform=lyTransform(l); touchSave(); } }
+    function lockSel(){ const l=curLayer(); if(l){ l.locked=!l.locked; renderCanvas(); renderProps(); showToast(l.locked?'Capa bloqueada':'Capa desbloqueada'); } }
+    function dupSel(){ const arr=state.deck[state.slideIndex].layers; if(state.sel==null)return; const c=structuredClone(arr[state.sel]); c.x+=6; c.y+=6; arr.push(c); state.sel=arr.length-1; renderCanvas(); renderLayers(); renderProps(); showToast('Capa duplicada'); touchSave(); }
+    function delSel(){ const arr=state.deck[state.slideIndex].layers; if(state.sel==null)return; arr.splice(state.sel,1); state.sel=null; renderCanvas(); renderLayers(); renderProps(); touchSave(); }
+    function moveLayer(dir){ const arr=state.deck[state.slideIndex].layers; const i=state.sel; if(i==null)return; const j=i+dir; if(j<0||j>=arr.length)return; [arr[i],arr[j]]=[arr[j],arr[i]]; state.sel=j; renderCanvas(); renderLayers(); renderProps(); touchSave(); }
+    function alignSel(axis,pos){ const l=curLayer(); if(!l)return; if(axis==='h')l.x=pos==='l'?15:pos==='c'?50:85; else l.y=pos==='t'?15:pos==='m'?50:85; renderCanvas(); renderProps(); touchSave(); }
+    function updateCtxRot(a){ const c=document.getElementById('ctx-rot'); if(c)c.value=Math.round(a); const r=document.getElementById('rp-rot'); if(r)r.innerText=Math.round(a); }
+    /* background editing */
+    function setBgMode(m){ state.deck[state.slideIndex].bg.mode=m; renderCanvas(); renderThumbs(); renderProps(); touchSave(); }
+    function setBgColor(c){ const bg=state.deck[state.slideIndex].bg; bg.mode='color'; bg.color=c; renderCanvas(); renderThumbs(); renderProps(); touchSave(); }
+    function setOverlay(v){ state.deck[state.slideIndex].bg.overlay=+v; renderCanvas(); renderProps(); touchSave(); }
+    function uploadBgPhoto(){ document.getElementById('bg-photo-input').click(); }
+    function onBgPhoto(e){ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{ const bg=state.deck[state.slideIndex].bg; bg.mode='photo'; bg.photo=ev.target.result; renderCanvas(); renderThumbs(); renderProps(); touchSave(); }; r.readAsDataURL(f); e.target.value=''; }
+    function clearBgPhoto(){ state.deck[state.slideIndex].bg.photo=null; renderCanvas(); renderThumbs(); renderProps(); touchSave(); }
+    function pickPhoto(){ if(state.fotos && state.fotos.length){ openBankModal(src=>{ const bg=state.deck[state.slideIndex].bg; bg.mode='photo'; bg.photo=src; renderCanvas(); renderThumbs(); renderProps(); touchSave(); }); } else { uploadBgPhoto(); } }
+    function applyFx(el, fx, accent){
+      if(!el) return;
+      el.style.textShadow=''; el.style.webkitTextStroke=''; el.style.paintOrder=''; el.style.borderRadius='';
+      if(el.dataset.mark!=='1'){ el.style.background=''; el.style.padding=''; }
+      if(fx==='sombra') el.style.textShadow='2px 3px 6px rgba(0,0,0,.55)';
+      else if(fx==='contorno'){ el.style.webkitTextStroke='1.5px #000'; el.style.paintOrder='stroke fill'; }
+      else if(fx==='neon') el.style.textShadow=`0 0 6px ${accent}, 0 0 14px ${accent}`;
+      else if(fx==='fondo'){ el.style.background='rgba(0,0,0,.45)'; el.style.padding='2px 10px'; el.style.borderRadius='8px'; }
+      else if(fx==='elevado') el.style.textShadow='0 10px 14px rgba(0,0,0,.5)';
+    }
+    function fxOptions(cur){ return [['none','Sin efecto'],['sombra','Sombra'],['contorno','Contorno'],['neon','Neón'],['fondo','Fondo'],['elevado','Elevado']].map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join(''); }
+
+    /* ---- thumbnails + layers ---- */
+    function thumbBg(p,s){ if(s.bg.mode==='preset'&&p.id==='A3') return '#faf9f5'; if(s.bg.mode==='photo'&&s.bg.photo) return `url('${s.bg.photo}') center/cover`; if(s.bg.mode==='color') return s.bg.color; return p.bg; }
+    function renderThumbs(){
+      const p = PRESETS[state.tipo] || PRESETS.A1;
+      const c = document.getElementById('deck-thumbs'); c.innerHTML='';
+      state.deck.forEach((s,idx)=>{
+        const t=document.createElement('div'); t.onclick=()=>gotoSlide(idx);
+        t.className=`w-10 h-14 rounded-lg border-2 cursor-pointer flex-shrink-0 relative overflow-hidden ${idx===state.slideIndex?'border-rose-500':'border-slate-800 opacity-70 hover:opacity-100'}`;
+        t.style.background = thumbBg(p,s);
+        t.innerHTML = `<span class="absolute top-0.5 left-0.5 bg-black/50 text-white px-1 rounded text-[7px]">${idx+1}</span>`;
+        c.appendChild(t);
+      });
+    }
+    function gotoSlide(i){ state.slideIndex=i; state.sel=null; renderCanvas(); renderThumbs(); renderLayers(); renderProps(); document.getElementById('slide-label').innerText=`Slide ${i+1}`; }
+    function addSlide(){ const p=PRESETS[state.tipo]; const td=textDefaults(p); state.deck.push(slideRecipe(p,'content',state.deck.length,state.deck.length+2,td)); gotoSlide(state.deck.length-1); showToast('Slide añadido'); touchSave(); }
+    function dupSlide(){ const s=structuredClone(state.deck[state.slideIndex]); state.deck.splice(state.slideIndex+1,0,s); gotoSlide(state.slideIndex+1); showToast('Slide duplicado'); touchSave(); }
+    function delSlide(){ if(state.deck.length<=1){ showToast('Debe quedar al menos 1 slide'); return; } state.deck.splice(state.slideIndex,1); gotoSlide(Math.max(0,state.slideIndex-1)); showToast('Slide eliminado'); touchSave(); }
+    function renderLayers(){
+      const s = state.deck[state.slideIndex]; const box = document.getElementById('layers-list'); box.innerHTML='';
+      for(let i=s.layers.length-1;i>=0;i--){
+        const l=s.layers[i]; const r=document.createElement('div'); r.onclick=()=>selectLayer(i);
+        r.className=`flex items-center gap-1.5 text-[10px] px-2 py-1 rounded cursor-pointer ${state.sel===i?'bg-rose-500/15 text-white':'text-slate-400 hover:bg-slate-800'}`;
+        const ic = l.type==='text'?'type':l.type==='photo'?'image':'shapes';
+        const lbl = l.type==='text'?(l.role==='title'?'Título':l.role==='body'?'Cuerpo':'Texto'):(l.type==='photo'?'Foto':l.label);
+        r.innerHTML=`<i data-lucide="${ic}" class="w-3 h-3"></i> ${lbl}${l.locked?' 🔒':''}`;
+        box.appendChild(r);
+      }
+      lucide.createIcons();
+    }
+    /* ---- "Pídeselo a VELA" chat (editor IA) ---- */
+    function openVela(){
+      const ctx = document.getElementById('vela-chat-ctx');
+      if(state.tipo) ctx.innerText = `Editando Slide ${state.slideIndex+1} · ${PRESETS[state.tipo].nombre}`;
+      renderVelaChips();
+      document.getElementById('vela-chat').classList.remove('translate-x-full');
+      lucide.createIcons();
+    }
+    function closeVela(){ document.getElementById('vela-chat').classList.add('translate-x-full'); }
+    const askVela = openVela;
+    function renderVelaChips(){
+      const chips = ['Acorta el título','Acento en rojo','Título en MAYÚSCULAS','Agrega una flecha','Hazlo más limpio'];
+      const box = document.getElementById('vela-chips'); box.innerHTML='';
+      chips.forEach(t => { const b=document.createElement('button'); b.className='text-[10px] px-2 py-1 rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700'; b.innerText=t; b.onclick=()=>{ document.getElementById('vela-chat-input').value=t; sendVela(); }; box.appendChild(b); });
+    }
+    function velaMsg(who, html){
+      const box = document.getElementById('vela-chat-box'); const d=document.createElement('div');
+      if(who==='user'){ d.className='flex items-start justify-end'; d.innerHTML=`<div class="bg-rose-600 text-white rounded-2xl rounded-tr-none p-3 text-xs max-w-[85%]">${html}</div>`; }
+      else { d.className='flex items-start gap-2'; d.innerHTML=`<div class="w-7 h-7 rounded-full vela-flame flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">V</div><div class="bg-slate-800/90 border border-slate-700/60 rounded-2xl rounded-tl-none p-3 text-xs text-slate-200 leading-relaxed max-w-[85%]">${html}</div>`; }
+      box.appendChild(d); box.scrollTop=box.scrollHeight;
+    }
+    async function sendVela(){
+      const inp=document.getElementById('vela-chat-input'); const v=inp.value.trim(); if(!v) return;
+      velaMsg('user', v); inp.value='';
+      if(AI_URL){
+        const s=state.deck[state.slideIndex]; const t=s.layers.find(l=>l.role==='title'), b=s.layers.find(l=>l.role==='body');
+        const r=await callIA({accion:'editor', mensaje:v, tipo:state.tipo, objetivo:state.objetivo, slideTitulo:t?t.text:'', slideCuerpo:b?b.text:''});
+        if(r){ if(r.ops) applyOps(r.ops); velaMsg('ai', r.reply || 'Hecho ✓'); return; }
+      }
+      const done = applyVelaCommand(v);
+      setTimeout(()=> velaMsg('ai', done || 'Entendido 👍 (demo). Conecta la IA (botón "IA" arriba) para que ejecute esto de verdad.'), 400);
+    }
+    function applyVelaCommand(text){
+      if(!state.deck.length) return null;
+      const s=state.deck[state.slideIndex]; const t=text.toLowerCase(); let msg=null;
+      const title=s.layers.find(l=>l.role==='title');
+      if(/(acorta|corto|resume)/.test(t)&&title){ title.text=title.text.split(' ').slice(0,3).join(' '); msg='Acorté el título ✍️'; }
+      if(/(may[uú]sc|uppercase)/.test(t)&&title){ title.upper=true; msg='Título en MAYÚSCULAS'; }
+      if(/rojo/.test(t)&&title){ title.color='#ef4444'; msg='Acento en rojo 🔴'; }
+      if(/(flecha|arrow)/.test(t)){ const p=PRESETS[state.tipo]; if(p.elementos.includes('Flechas')){ addShape('Flechas'); msg='Agregué una flecha ↗'; } else if(p.elementos.includes('Anotaciones')){ addShape('Anotaciones'); msg='Agregué una flecha ↗'; } else msg='Este estilo no usa flechas.'; }
+      if(/(limpio|limpia|minimal)/.test(t)){ msg = msg || 'Sugerencia: deja 1 idea por slide (demo).'; }
+      if(msg){ renderCanvas(); renderLayers(); renderProps(); }
+      touchSave();
+      return msg;
+    }
+
+    /* ===================== PREVIEW STEP 3 ===================== */
+    function renderPreview(){
+      const p = PRESETS[state.tipo] || PRESETS.A1;
+      if(!state.deck.length) buildDeck();
+      document.getElementById('preview-format').innerText = state.fmt;
+      const s = state.deck[state.slideIndex] || state.deck[0];
+      const ph = document.getElementById('preview-phone');
+      ph.style.aspectRatio = state.fmt==='9:16' ? '9/16' : '4/5';
+      const dot=(s.bg.mode==='preset'&&p.id==='A3');
+      ph.className = "w-full max-w-[320px] rounded-2xl overflow-hidden border border-slate-700 canvas-glow relative" + (dot?' dot-grid':'');
+      ph.style.background = dot ? '' : slideBgCss(p,s);
+      ph.innerHTML='';
+      if(s.bg.overlay>0){ const ov=document.createElement('div'); ov.className='absolute inset-0 pointer-events-none'; ov.style.background=`rgba(0,0,0,${s.bg.overlay})`; ph.appendChild(ov); }
+      s.layers.forEach((l,i)=>{
+        const d=document.createElement('div'); d.className='absolute'; d.style.left=l.x+'%'; d.style.top=l.y+'%'; d.style.transform=lyTransform(l); d.style.opacity=(l.opacity==null?1:l.opacity); d.style.zIndex=10+i;
+        if(l.type==='text'){ const tx=document.createElement('div'); tx.style.fontFamily=l.font; tx.style.color=l.color; tx.style.fontSize=((l.size||16)*0.85)+'px'; tx.style.fontWeight=l.bold?'900':'400'; tx.style.textDecoration=l.under?'underline':'none'; tx.style.textTransform=l.upper?'uppercase':'none'; tx.style.textAlign=l.align; tx.style.maxWidth='260px'; tx.className='leading-tight whitespace-pre-line'; tx.innerText=l.text; applyFx(tx,l.fx,p.accent); if(l.mark){ tx.style.background='rgba(250,204,21,.9)'; tx.style.color='#111'; tx.style.padding='0 6px'; } d.appendChild(tx); }
+        else if(l.type==='photo'){ const img=document.createElement('img'); img.src=l.src; img.style.width=((l.w||170)*0.85)+'px'; img.style.borderRadius=(l.radius||0)+'px'; d.appendChild(img); }
+        else { d.innerHTML=elMarkup(l); }
+        ph.appendChild(d);
+      });
+      // dots
+      const dots=document.getElementById('preview-dots'); dots.innerHTML='';
+      state.deck.forEach((_,idx)=>{ const b=document.createElement('button'); b.onclick=()=>{ state.slideIndex=idx; renderPreview(); }; b.className=`h-2 rounded-full transition-all ${idx===state.slideIndex?'w-5 bg-rose-500':'w-2 bg-slate-600'}`; dots.appendChild(b); });
+      runQC();
+    }
+    function navPreview(dir){ state.slideIndex=(state.slideIndex+dir+state.deck.length)%state.deck.length; renderPreview(); }
+
+    /* ---- QC ---- */
+    function runQC(){
+      const box=document.getElementById('qc-list'); if(!box) return; let issues=[];
+      state.deck.forEach((s,idx)=>{
+        const title=s.layers.find(l=>l.role==='title'); const body=s.layers.find(l=>l.role==='body');
+        if(title && title.text.length>60) issues.push(`Slide ${idx+1}: título largo (${title.text.length} car.)`);
+        if(body && body.text.length>220) issues.push(`Slide ${idx+1}: cuerpo muy largo`);
+        if(s.layers.length>9) issues.push(`Slide ${idx+1}: demasiadas capas (${s.layers.length})`);
+        if(s.bg.mode==='photo' && !s.bg.photo) issues.push(`Slide ${idx+1}: falta foto de fondo`);
+        if(s.bg.mode==='photo' && s.bg.photo && s.bg.overlay<0.2) issues.push(`Slide ${idx+1}: sube "Oscurecer" para contraste`);
+      });
+      box.innerHTML = issues.length ? issues.map(m=>`<div class="flex items-start gap-1.5"><span class="text-amber-400">⚠</span><span>${m}</span></div>`).join('') : '<div class="text-emerald-400">✓ Todo en orden</div>';
+    }
+
+    /* ---- caption ---- */
+    async function genCaption(){
+      if(AI_URL){
+        showToast('Generando caption con IA…');
+        const titulos=state.deck.map(s=>{const t=s.layers.find(l=>l.role==='title');return t?t.text:'';});
+        const r=await callIA({accion:'caption', tipo:state.tipo, objetivo:state.objetivo, titulos});
+        if(r && r.caption){ document.getElementById('caption-box').value=r.caption; showToast('Caption generado con IA ✓'); touchSave(); return; }
+      }
+      const first=state.deck[0].layers.find(l=>l.role==='title'); const hook=first?first.text:'';
+      const cta={Educar:'Guarda este post 📌',Vender:'Comenta INFO 💬',Personal:'¿Te pasó igual? 👇',Motivacional:'Empieza hoy 🔥'}[state.objetivo]||'Comenta INFO 💬';
+      const tags='#trading #finanzas #mentalidad #inversiones #libertadfinanciera';
+      document.getElementById('caption-box').value=`${hook}\n\nEn este carrusel te lo explico paso a paso 👇\n\n${cta}\n\n${tags}`;
+      showToast('Caption generado (demo · conecta la IA para uno real)'); touchSave();
+    }
+    function copyCaption(){ const v=document.getElementById('caption-box').value; if(!v){ showToast('Escribe o genera un caption'); return; } navigator.clipboard.writeText(v).then(()=>showToast('Caption copiado ✓')).catch(()=>showToast('Selecciona y copia')); }
+
+    /* ---- export (PNG / ZIP / PDF) ---- */
+    function setExp(m){ const e=document.getElementById('export-status'); if(e) e.innerText=m; }
+    function stageDims(){ const W=1080; return state.fmt==='9:16' ? {w:W,h:Math.round(W*16/9)} : {w:W,h:Math.round(W*5/4)}; }
+    function buildStage(slide){
+      const {w,h}=stageDims(); const p=PRESETS[state.tipo]||PRESETS.A1; const sc=w/360;
+      const stage=document.getElementById('export-stage');
+      const dot=(slide.bg.mode==='preset'&&p.id==='A3');
+      stage.className=dot?'dot-grid':''; stage.style.width=w+'px'; stage.style.height=h+'px'; stage.style.overflow='hidden'; stage.style.position='fixed'; stage.style.left='-9999px'; stage.style.top='0';
+      stage.style.background = dot ? '#faf9f5' : '';
+      stage.innerHTML='';
+      const base=document.createElement('div'); base.style.position='absolute'; base.style.inset='0';
+      if(!dot) base.style.background=slideBgCss(p,slide);
+      stage.appendChild(base);
+      if(slide.bg.overlay>0){ const ov=document.createElement('div'); ov.style.position='absolute'; ov.style.inset='0'; ov.style.background=`rgba(0,0,0,${slide.bg.overlay})`; stage.appendChild(ov); }
+      slide.layers.forEach((l,i)=>{
+        const d=document.createElement('div'); d.style.position='absolute'; d.style.left=l.x+'%'; d.style.top=l.y+'%'; d.style.opacity=(l.opacity==null?1:l.opacity); d.style.zIndex=10+i;
+        if(l.type==='text'){
+          d.style.transform=lyTransform(l);
+          const tx=document.createElement('div'); tx.style.fontFamily=l.font; tx.style.color=l.color; tx.style.fontSize=((l.size||16)*sc)+'px'; tx.style.fontWeight=l.bold?'900':'400'; tx.style.textDecoration=l.under?'underline':'none'; tx.style.textTransform=l.upper?'uppercase':'none'; tx.style.textAlign=l.align; tx.style.maxWidth=(300*sc)+'px'; tx.style.lineHeight='1.1'; tx.style.whiteSpace='pre-line'; tx.innerText=l.text; applyFx(tx,l.fx,p.accent); if(l.mark){ tx.style.background='rgba(250,204,21,.9)'; tx.style.color='#111'; tx.style.padding=`0 ${6*sc}px`; }
+          d.appendChild(tx);
+        } else if(l.type==='photo'){
+          d.style.transform=lyTransform(l);
+          const img=document.createElement('img'); img.src=l.src; img.crossOrigin='anonymous'; img.style.width=((l.w||170)*sc)+'px'; img.style.borderRadius=((l.radius||0)*sc)+'px'; d.appendChild(img);
+        } else {
+          d.style.transform=`translate(-50%,-50%) rotate(${l.rot||0}deg) scale(${(l.scale||1)*(l.flipX||1)*sc}, ${(l.scale||1)*sc})`;
+          d.innerHTML=elMarkup(l);
+        }
+        stage.appendChild(d);
+      });
+      return {w,h};
+    }
+    async function captureSlide(slide){
+      const {w,h}=buildStage(slide);
+      await new Promise(r=>setTimeout(r,150));
+      const canvas=await html2canvas(document.getElementById('export-stage'),{width:w,height:h,backgroundColor:null,scale:1,useCORS:true,logging:false});
+      return canvas.toDataURL('image/png');
+    }
+    function dl(href,name){ const a=document.createElement('a'); a.href=href; a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
+    async function exportPNG(){ setExp('Generando PNG…'); try{ const url=await captureSlide(state.deck[state.slideIndex]); dl(url,`vela_slide_${state.slideIndex+1}.png`); setExp('PNG descargado ✓'); }catch(e){ setExp('Error: '+e.message); } }
+    async function exportZIP(){ if(!window.JSZip){ setExp('JSZip no cargó'); return; } setExp('Generando ZIP…'); try{ const zip=new JSZip(); for(let i=0;i<state.deck.length;i++){ setExp(`Renderizando ${i+1}/${state.deck.length}…`); const url=await captureSlide(state.deck[i]); zip.file(`slide_${i+1}.png`, url.split(',')[1], {base64:true}); } const cap=document.getElementById('caption-box').value; if(cap) zip.file('caption.txt', cap); const blob=await zip.generateAsync({type:'blob'}); dl(URL.createObjectURL(blob),'vela_carrusel.zip'); setExp('ZIP descargado ✓'); }catch(e){ setExp('Error: '+e.message); } }
+    async function exportPDF(){ const J=window.jspdf&&window.jspdf.jsPDF; if(!J){ setExp('jsPDF no cargó'); return; } setExp('Generando PDF…'); try{ const {w,h}=stageDims(); const pdf=new J({orientation:'portrait',unit:'px',format:[w,h]}); for(let i=0;i<state.deck.length;i++){ setExp(`Renderizando ${i+1}/${state.deck.length}…`); const url=await captureSlide(state.deck[i]); if(i>0) pdf.addPage([w,h],'portrait'); pdf.addImage(url,'PNG',0,0,w,h); } pdf.save('vela_carrusel.pdf'); setExp('PDF descargado ✓'); }catch(e){ setExp('Error: '+e.message); } }
+
+    /* ===================== CHAT / TOAST / SAVE ===================== */
+    function sendChatMessage(){
+      const inp = document.getElementById('ai-chat-input');
+      const v = inp.value.trim(); if(!v) return;
+      const box = document.getElementById('ai-chat-box');
+      const u = document.createElement('div');
+      u.className = "flex items-start justify-end";
+      u.innerHTML = `<div class="bg-rose-600 text-white rounded-2xl rounded-tr-none p-3 text-xs max-w-[85%]">${v}</div>`;
+      box.appendChild(u); inp.value=''; box.scrollTop = box.scrollHeight;
+      setTimeout(()=>{
+        const a = document.createElement('div');
+        a.className = "flex items-start space-x-2";
+        a.innerHTML = `<div class="w-7 h-7 rounded-full vela-flame flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">V</div>
+          <div class="bg-slate-800/90 border border-slate-700/60 rounded-2xl rounded-tl-none p-3 text-xs text-slate-200 max-w-[85%]">Recibido 👍 (demo). En la app conecto la IA para dividir/ajustar el guión.</div>`;
+        box.appendChild(a); box.scrollTop = box.scrollHeight;
+      }, 500);
+    }
+    function showToast(msg){
+      const t = document.getElementById('toast');
+      document.getElementById('toast-msg').innerText = msg;
+      t.classList.remove('translate-y-20','opacity-0'); t.classList.add('translate-y-0','opacity-100');
+      setTimeout(()=>{ t.classList.add('translate-y-20','opacity-0'); t.classList.remove('translate-y-0','opacity-100'); }, 2600);
+    }
+    let saveTimer;
+    function touchSave(){
+      const dot = document.getElementById('save-dot'), lbl = document.getElementById('save-label');
+      dot.className = "w-2 h-2 rounded-full bg-amber-400 mr-2 animate-pulse"; lbl.innerText = "Guardando…";
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(()=>{ saveState(); dot.className = "w-2 h-2 rounded-full bg-emerald-400 mr-2"; lbl.innerText = "Guardado ✓"; }, 600);
+    }
+    /* ===================== PERSISTENCIA (localStorage) ===================== */
+    const LS_KEY = 'vela_state_v1';
+    function snapshot(){ return { tipo:state.tipo, objetivo:state.objetivo, fmt:state.fmt, slides:state.slides, guion:state.guion, photoMode:state.photoMode, deck:state.deck, slideIndex:state.slideIndex, step:currentStep, caption:(document.getElementById('caption-box')||{}).value||'' }; }
+    function stripImages(snap){ const c=JSON.parse(JSON.stringify(snap)); (c.deck||[]).forEach(s=>{ if(s.bg) s.bg.photo=null; s.layers=(s.layers||[]).filter(l=>l.type!=='photo'); }); c._imgStripped=true; return c; }
+    function saveState(){
+      try{ localStorage.setItem(LS_KEY, JSON.stringify(snapshot())); }
+      catch(e){ try{ localStorage.setItem(LS_KEY, JSON.stringify(stripImages(snapshot()))); }catch(e2){} }
+    }
+    function loadState(){ try{ const r=localStorage.getItem(LS_KEY); return r?JSON.parse(r):null; }catch(e){ return null; } }
+    function clearState(){ try{ localStorage.removeItem(LS_KEY); }catch(e){} }
+    function restoreState(s){
+      state.tipo=s.tipo; state.objetivo=s.objetivo||'Educar'; state.fmt=s.fmt||'4:5'; state.slides=s.slides||null;
+      state.guion=s.guion||''; state.photoMode=s.photoMode||'manual'; state.deck=s.deck||[]; state.slideIndex=s.slideIndex||0;
+      const gi=document.getElementById('guion-input'); if(gi) gi.value=state.guion;
+      selectObjective(state.objetivo);
+      if(state.tipo){ selectType(state.tipo); }
+      const cb=document.getElementById('caption-box'); if(cb&&s.caption) cb.value=s.caption;
+      if(state.deck.length){ switchStep(s.step===3?3:2); showToast('Trabajo recuperado ✓' + (s._imgStripped?' (fotos no cabían en el guardado)':'')); }
+    }
+
+    /* ===================== IA (backend configurable · Supabase Edge Function) ===================== */
+    let AI_URL = '';
+    try{ AI_URL = localStorage.getItem('vela_ai_url') || ''; }catch(e){}
+    function updateAiPill(){
+      const b=document.getElementById('ai-pill'), l=document.getElementById('ai-pill-label'); if(!b) return;
+      if(AI_URL){ l.innerText='IA: conectada'; b.classList.remove('text-amber-300','bg-amber-950/40','border-amber-800/40'); b.classList.add('text-emerald-300','bg-emerald-950/40','border-emerald-800/40'); }
+      else { l.innerText='IA: sin conectar'; }
+    }
+    function setAiUrl(){
+      const cur=AI_URL||'';
+      const v=prompt('Pega la URL de tu función de IA (Supabase Edge Function "vela-ai").\nDéjala vacía para desconectar.', cur);
+      if(v===null) return;
+      AI_URL=v.trim(); try{ localStorage.setItem('vela_ai_url', AI_URL); }catch(e){}
+      updateAiPill(); showToast(AI_URL?'IA conectada ✓':'IA desconectada');
+    }
+    async function callIA(payload){
+      if(!AI_URL) return null;
+      try{ const r=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); if(!r.ok) throw new Error('HTTP '+r.status); return await r.json(); }
+      catch(e){ showToast('IA no respondió: '+e.message); return null; }
+    }
+    function applyOps(ops){
+      if(!ops||!ops.length) return;
+      const s=state.deck[state.slideIndex]; const title=s.layers.find(l=>l.role==='title'); const body=s.layers.find(l=>l.role==='body');
+      ops.forEach(op=>{
+        if(op.t==='title'&&title) title.text=op.v;
+        else if(op.t==='body'&&body) body.text=op.v;
+        else if(op.t==='accent'&&title) title.color=op.v;
+        else if(op.t==='mayus'&&title) title.upper=true;
+        else if(op.t==='arrow'){ const p=PRESETS[state.tipo]; if(p.elementos.includes('Flechas')) addShape('Flechas'); }
+      });
+      renderCanvas(); renderLayers(); renderProps(); touchSave();
+    }
+  </script>
+</body>
+</html>
