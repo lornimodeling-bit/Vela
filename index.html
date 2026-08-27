@@ -645,7 +645,11 @@
                B1:{tx:50,ty:42,bx:50,by:60,al:'center'}, B2:{tx:50,ty:57,bx:50,by:77,al:'center'} }[p.id]
              || {tx:50,ty:42,bx:50,by:58,al:'center'};
     }
-    function mkText(role,text,font,color,size,x,y,al){ return {type:'text',role,text,font,color,size,fx:'none',x,y,rot:0,scale:1,opacity:1,flipX:1,locked:false,align:al,bold:false,under:false,upper:false,mark:false}; }
+    function mkText(role,text,font,color,size,x,y,al){ return {type:'text',role,text,font,color,size,fx:'none',x,y,rot:0,scale:1,opacity:1,flipX:1,locked:false,align:al,bold:false,under:false,upper:false,mark:false,italic:false}; }
+    /* convierte un cuerpo en viñetas (para el look de libreta) */
+    function bulletize(text){ const parts=(text||'').split(/(?<=[.!?])\s+|\n+/).map(s=>s.trim()).filter(Boolean); return parts.slice(0,4).map(s=>'• '+s).join('\n'); }
+    /* decodifica entidades HTML que a veces devuelve la IA (&#x27; &amp; etc.) */
+    function decodeHtml(s){ if(!s||s.indexOf('&')<0) return s; const t=document.createElement('textarea'); t.innerHTML=s; return t.value; }
     /* auto-ajuste: textos largos => letra más chica (para que no desborden ni se encimen) */
     function fitSize(text, base, min){
       const len=(text||'').length; let s=base;
@@ -657,7 +661,8 @@
       switch(p.id){
         case 'A1': return { mode:'photo', color:'#111111', photo:null, overlay:0.45 };
         case 'A2': return { mode:'photo', color:'#111111', photo:null, overlay:0.40 };
-        case 'A3': return { mode:'preset', color:'#111111', photo:null, overlay:0 };            // cuadrícula libreta
+        case 'A3': return (role==='cover'||role==='cta') ? { mode:'photo', color:'#111111', photo:null, overlay:0.5 }   // hook/CTA = foto + overlay
+                                                          : { mode:'preset', color:'#111111', photo:null, overlay:0 };  // contenido = libreta
         case 'A4': return { mode:'color', color:'#0b0f14', photo:null, overlay:0 };
         case 'B1': return { mode:'color', color:'#111827', photo:null, overlay:0 };
         case 'B2': return { mode:'photo', color:'#111111', photo:null, overlay:0.45 };
@@ -693,9 +698,32 @@
         titleL.bold=true; titleL.fx='sombra';
         if(role!=='cta') extras.push(mkShape('chart','Gráfico',50,58,{color:p.accent,scale:1.7}));
       } else if(p.id==='A3'){
-        titleL.font="'Caveat', cursive"; titleL.color='#e11d48'; titleL.size = role==='cover'?36:28;
-        if(role==='content') extras.push(mkShape('diagrama','Diagrama',50,62,{color:'#1f2937',scale:1.5}));
-        if(role==='cta'){ if(!ov) titleL.text='Comenta "INFO"'; }
+        // los slides "TRADER 1:", "PASO 2:", ALLCAPS con ":" => libreta; el resto (hook, insight, cta) => foto+overlay
+        const esLibreta = role==='content' && (/^(trader|paso|tipo|fase|nivel|parte|d[ií]a|semana|regla|error|mito|clave|tip|punto)\b/i.test(title||'') || /:\s*\S/.test(title||''));
+        if(!esLibreta){
+          // HOOK / INSIGHT / CTA = foto + texto blanco en cursiva
+          bg.mode='photo'; bg.overlay=0.5;
+          titleL.color='#ffffff'; titleL.italic=true; titleL.fx='sombra'; titleL.font=p.bodyFont;
+          bodyL.color='#ffffff'; bodyL.italic=true; bodyL.fx='sombra';
+          if(role==='cover'){ titleL.y=20; bodyL.y=42; extras.push({...mkText('deco','Desliza  →', p.bodyFont, '#ffffff', 15, 74, 92, 'right'), italic:true, fx:'sombra'}); }
+          else if(role==='cta'){
+            // 3 niveles: pregunta (arriba) · palabra clave GIGANTE · instrucción (abajo)
+            titleL.y=20; titleL.size=Math.max(13, fitSize(title,20,12));
+            const bl=(bodyL.text||'').split('\n').map(s=>s.trim()).filter(Boolean);
+            let kw=''; if(bl.length && bl[0].split(/\s+/).length<=2 && /[A-ZÁÉÍÓÚÑ]/.test(bl[0]) && bl[0]===bl[0].toUpperCase()){ kw=bl.shift(); }
+            bodyL.text=bl.join('\n'); bodyL.y=70; bodyL.size=Math.max(13, fitSize(bodyL.text,20,12));
+            if(kw){ extras.push({...mkText('deco', kw, p.bodyFont, '#ffffff', 58, 50, 47, 'center'), bold:true, italic:true, fx:'sombra'}); }
+          }
+          else { titleL.y=34; bodyL.y=57; }   // insight / cierre
+        } else {
+          // CONTENIDO libreta: manuscrita negra, título subrayado, viñetas, gráfico + doodle
+          titleL.font="'Caveat', cursive"; titleL.color='#1f2937'; titleL.bold=true; titleL.under=true;
+          titleL.align='left'; titleL.x=32; titleL.y=15; titleL.wMax=175; titleL.size=Math.max(22, fitSize(title,32,22));
+          bodyL.font="'Caveat', cursive"; bodyL.color='#1f2937'; bodyL.align='left';
+          bodyL.x=33; bodyL.y=47; bodyL.wMax=165; bodyL.size=17; bodyL.text=bulletize(bodyL.text);
+          extras.push(mkShape('chart','Gráfico',79,32,{color:'#1f2937',scale:0.9,stroke:2.5}));
+          extras.push(mkShape('scribble','Doodle',24,84,{color:'#1f2937',scale:1.05,stroke:2.5}));
+        }
       } else if(p.id==='A4'){
         titleL.font="'Montserrat', sans-serif"; titleL.bold=true; titleL.upper=true; titleL.color='#ffffff';
         if(role==='cta'){ if(!ov) titleL.text='Entra a OpenClaw'; titleL.upper=false; titleL.fx='fondo'; titleL.color='#ffffff'; }
@@ -704,26 +732,31 @@
       }
       return { bg, layers:[...extras, titleL, bodyL] };   // texto SIEMPRE encima de los adornos (editable)
     }
-    /* Divide el guión localmente (heurística): párrafos → líneas → frases, y agrupa en n slides */
+    /* etiquetas de sección que el usuario suele escribir y que NO deben mostrarse como texto */
+    const GUION_LABELS = /^(hook|gancho|portada|cta|llamada( a la acci[oó]n)?|insight|cierre|cierre de argumento|insight\s*\/\s*cierre.*|argumento|desarrollo|contenido|slide\s*\d+|punto\s*\d+)\s*:?\.?$/i;
+    function isHeaderLine(s){ return /^trader\s*\d/i.test(s) || /:$/.test(s) || (s.length<=42 && s===s.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(s)); }
+    /* Divide el guión localmente (heurística consciente de encabezados) */
     function splitGuionLocal(text, n){
       if(!text || !text.trim()) return [];
-      let parts = text.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
-      if(parts.length < n){
-        let lines=[]; parts.forEach(p=>p.split('\n').map(s=>s.trim()).filter(Boolean).forEach(l=>lines.push(l)));
-        if(lines.length < n){
-          let sents=[]; lines.forEach(l=>(l.match(/[^.!?]+[.!?]*/g)||[l]).map(s=>s.trim()).filter(Boolean).forEach(s=>sents.push(s)));
-          if(sents.length>lines.length) lines=sents;
-        }
-        parts=lines;
+      let sections = text.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
+      // si el usuario no dejó líneas en blanco, cae a líneas/frases hasta acercarse a n
+      if(sections.length < 2 && n>1){
+        let lines = text.split('\n').map(s=>s.trim()).filter(Boolean);
+        if(lines.length < n){ let sents=[]; lines.forEach(l=>(l.match(/[^.!?]+[.!?]*/g)||[l]).map(s=>s.trim()).filter(Boolean).forEach(s=>sents.push(s))); if(sents.length>lines.length) lines=sents; }
+        sections = lines;
       }
-      const target = Math.max(1, Math.min(n||parts.length, parts.length));
-      const buckets = Array.from({length:target},()=>[]);
-      parts.forEach((x,i)=> buckets[Math.floor(i*target/parts.length)].push(x));
-      return buckets.map(ch=>{
-        if(ch.length>=2) return { title:ch[0], body:ch.slice(1).join(' ') };
-        const s=ch[0]||''; const w=s.split(/\s+/);
-        return w.length>9 ? { title:w.slice(0,6).join(' '), body:s } : { title:s, body:'' };
-      });
+      const blocks = sections.map(sec=>{
+        let lines = sec.split('\n').map(s=>s.trim()).filter(Boolean);
+        // 1) descarta encabezado-etiqueta puro (HOOK, CTA, INSIGHT/CIERRE…)
+        if(lines.length && GUION_LABELS.test(lines[0])) lines.shift();
+        if(!lines.length) return null;
+        let title='';
+        // 2) si la 1ª línea es un encabezado real (TRADER 1:, ALLCAPS), úsala como título
+        if(isHeaderLine(lines[0]) && lines.length>1){ title=lines[0]; lines.shift(); }
+        else { title=lines[0]; lines = lines.slice(1); }
+        return { title, body: lines.join('\n') };
+      }).filter(Boolean);
+      return blocks;
     }
     function assembleDeck(blocks){
       const p = PRESETS[state.tipo] || PRESETS.A1; const td = textDefaults(p);
@@ -747,13 +780,40 @@
       const target = state.slides || p.slidesDefault;
       let blocks = [];
       if(state.guion && state.guion.trim()){
-        if(AI_URL && state.dividirRoles){
+        const local = splitGuionLocal(state.guion, target);
+        // guión ya estructurado (secciones por línea en blanco o encabezados claros) => usa el parser local (más fiel)
+        const estructurado = /\n\s*\n/.test(state.guion) || local.length >= Math.min(target, 4);
+        if(estructurado){
+          blocks = local;
+        } else if(AI_URL && state.dividirRoles){
           try{ const r = await callIA({accion:'dividir', guion:state.guion, tipo:state.tipo, objetivo:state.objetivo, nSlides:target});
-               if(r && Array.isArray(r.bloques) && r.bloques.length) blocks = r.bloques; }catch(e){}
+               if(r && Array.isArray(r.bloques) && r.bloques.length) blocks = r.bloques.map(b=>({title:decodeHtml(b.title||''), body:decodeHtml(b.body||'')})); }catch(e){}
         }
-        if(!blocks.length) blocks = splitGuionLocal(state.guion, target);
+        if(!blocks.length) blocks = local;
+        if(blocks.length) blocks = fitBlocksToN(blocks, target);   // respeta el nº exacto pedido
       }
       assembleDeck(blocks);
+    }
+    function capFirst(s){ s=(s||'').trim(); return s ? s.charAt(0).toUpperCase()+s.slice(1) : 'Detalle'; }
+    /* ajusta a EXACTAMENTE n: une extras hacia arriba; divide SOLO bloques largos (título natural). Si no se puede limpio, deja menos. */
+    function fitBlocksToN(blocks, n){
+      blocks = blocks.map(b=>({title:b.title||'', body:b.body||''}));
+      while(blocks.length > n && blocks.length > 1){
+        const i = Math.max(1, blocks.length-2);           // conserva hook (0) y CTA (último)
+        blocks[i-1].body = (blocks[i-1].body+' — '+blocks[i].title+'. '+blocks[i].body).replace(/\s+/g,' ').trim();
+        blocks.splice(i,1);
+      }
+      let guard=0;
+      while(blocks.length < n && guard++ < 20){
+        let li=-1, ll=8;                                   // solo divide cuerpos con >8 palabras
+        blocks.forEach((b,idx)=>{ if(idx>0 && idx<blocks.length-1){ const w=(b.body||'').split(/\s+/).filter(Boolean).length; if(w>ll){ll=w;li=idx;} } });
+        if(li<0){ blocks.forEach((b,idx)=>{ const w=(b.body||'').split(/\s+/).filter(Boolean).length; if(w>ll){ll=w;li=idx;} }); }
+        if(li<0) break;                                    // nada divisible limpio → deja menos
+        const b=blocks[li]; const words=(b.body||'').split(/\s+/).filter(Boolean); const mid=Math.ceil(words.length/2);
+        const half=words.slice(mid); const nb={ title:capFirst(half.slice(0,3).join(' ')), body:half.join(' ') };
+        b.body=words.slice(0,mid).join(' '); blocks.splice(li+1,0,nb);
+      }
+      return blocks;
     }
 
     /* ===================== EDITOR ===================== */
@@ -798,7 +858,7 @@
         const t=document.createElement('div'); t.id='ly-txt-'+i; t.contentEditable='false';
         t.style.fontFamily=l.font; t.style.color=l.color; t.style.fontSize=(l.size||16)+'px';
         t.style.fontWeight=l.bold?'900':'400'; t.style.textDecoration=l.under?'underline':'none';
-        t.style.textTransform=l.upper?'uppercase':'none'; t.style.textAlign=l.align||'center'; t.style.maxWidth='330px'; t.style.lineHeight='1.08';
+        t.style.textTransform=l.upper?'uppercase':'none'; t.style.textAlign=l.align||'center'; t.style.maxWidth=(l.wMax||330)+'px'; t.style.lineHeight='1.08'; t.style.fontStyle=l.italic?'italic':'normal';
         t.className='outline-none leading-tight whitespace-pre-line'; t.innerText=l.text;
         applyFx(t,l.fx,PRESETS[state.tipo].accent);
         if(l.mark){ t.style.background='rgba(250,204,21,.9)'; t.style.color='#111'; t.style.padding='0 6px'; }
@@ -883,7 +943,8 @@
         case 'flecha': return `<svg width="60" height="40" viewBox="0 0 60 40" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round"><path d="M5 32 Q30 4 52 18"/><path d="M43 10 L54 18 L44 26"/></svg>`;
         case 'doodle': return `<svg width="70" height="22" viewBox="0 0 70 22" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round"><path d="M3 11 q9 -11 18 0 t18 0 t18 0"/></svg>`;
         case 'diagrama': return `<svg width="72" height="50" viewBox="0 0 72 50" fill="none" stroke="${c}" stroke-width="${w}"><path d="M4 6 H68 L46 44 H26 Z"/></svg>`;
-        case 'chart': return `<svg width="120" height="60" viewBox="0 0 120 60" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"><path d="M4 52 L28 30 L48 40 L72 14 L116 6"/></svg>`;
+        case 'chart': return `<svg width="150" height="96" viewBox="0 0 150 96" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"><path stroke-dasharray="5 5" d="M6 20 H140"/><path stroke-dasharray="5 5" d="M6 66 H128"/><path d="M8 60 L20 34 L30 52 L40 30 L50 54 L60 40 L72 58 L84 42 L96 60 L108 30 L124 44 L140 8"/><path d="M130 8 L140 8 L138 20"/></svg>`;
+        case 'scribble': return `<svg width="70" height="80" viewBox="0 0 70 80" fill="none" stroke="${c}" stroke-width="${w||2.5}" stroke-linecap="round" stroke-linejoin="round"><path d="M18 18 q-10 -8 -2 -14 q9 -6 16 1 q9 -7 16 1 q8 7 -1 13 q7 7 -3 12 q-8 4 -14 -3 q-9 5 -15 -3 q-5 -9 3 -14 Z"/><circle cx="35" cy="46" r="9"/><path d="M30 45 h2 M38 45 h2"/><path d="M31 52 q4 -3 8 0"/><path d="M35 55 V70 M35 60 L26 66 M35 60 L44 66 M35 70 L28 78 M35 70 L42 78"/></svg>`;
         case 'sticky': return `<div style="background:#fde68a;color:#78350f" class="w-16 h-16 shadow-md -rotate-3 p-1.5 text-[10px] font-bold font-caveat">nota…</div>`;
         case 'inset': case 'screenshot': return `<div class="w-24 h-16 rounded-md bg-slate-300 border-2 border-white shadow-lg flex items-center justify-center text-[8px] text-slate-600">captura</div>`;
         case 'widget': return `<div class="bg-black/85 rounded-lg px-3 py-1.5 text-center shadow-lg"><div class="text-emerald-400 font-mono-v font-bold text-sm">+7,848.00</div><div class="text-slate-400 font-mono-v text-[8px]">Δ 18,470 (0.43%)</div></div>`;
@@ -1193,7 +1254,7 @@
       if(s.bg.overlay>0){ const ov=document.createElement('div'); ov.className='absolute inset-0 pointer-events-none'; ov.style.background=`rgba(0,0,0,${s.bg.overlay})`; ph.appendChild(ov); }
       s.layers.forEach((l,i)=>{
         const d=document.createElement('div'); d.className='absolute'; d.style.left=l.x+'%'; d.style.top=l.y+'%'; d.style.transform=lyTransform(l); d.style.opacity=(l.opacity==null?1:l.opacity); d.style.zIndex=10+i;
-        if(l.type==='text'){ const tx=document.createElement('div'); tx.style.fontFamily=l.font; tx.style.color=l.color; tx.style.fontSize=((l.size||16)*0.85)+'px'; tx.style.fontWeight=l.bold?'900':'400'; tx.style.textDecoration=l.under?'underline':'none'; tx.style.textTransform=l.upper?'uppercase':'none'; tx.style.textAlign=l.align; tx.style.maxWidth='260px'; tx.className='leading-tight whitespace-pre-line'; tx.innerText=l.text; applyFx(tx,l.fx,p.accent); if(l.mark){ tx.style.background='rgba(250,204,21,.9)'; tx.style.color='#111'; tx.style.padding='0 6px'; } d.appendChild(tx); }
+        if(l.type==='text'){ const tx=document.createElement('div'); tx.style.fontFamily=l.font; tx.style.color=l.color; tx.style.fontSize=((l.size||16)*0.85)+'px'; tx.style.fontWeight=l.bold?'900':'400'; tx.style.textDecoration=l.under?'underline':'none'; tx.style.textTransform=l.upper?'uppercase':'none'; tx.style.fontStyle=l.italic?'italic':'normal'; tx.style.textAlign=l.align; tx.style.maxWidth=((l.wMax||306)*0.85)+'px'; tx.className='leading-tight whitespace-pre-line'; tx.innerText=l.text; applyFx(tx,l.fx,p.accent); if(l.mark){ tx.style.background='rgba(250,204,21,.9)'; tx.style.color='#111'; tx.style.padding='0 6px'; } d.appendChild(tx); }
         else if(l.type==='photo'){ const img=document.createElement('img'); img.src=l.src; img.style.width=((l.w||170)*0.85)+'px'; img.style.borderRadius=(l.radius||0)+'px'; d.appendChild(img); }
         else { d.innerHTML=elMarkup(l); }
         ph.appendChild(d);
@@ -1225,7 +1286,7 @@
         showToast('Generando caption con IA…');
         const titulos=state.deck.map(s=>{const t=s.layers.find(l=>l.role==='title');return t?t.text:'';});
         const r=await callIA({accion:'caption', tipo:state.tipo, objetivo:state.objetivo, titulos});
-        if(r && r.caption){ document.getElementById('caption-box').value=r.caption; showToast('Caption generado con IA ✓'); touchSave(); return; }
+        if(r && r.caption){ document.getElementById('caption-box').value=decodeHtml(r.caption); showToast('Caption generado con IA ✓'); touchSave(); return; }
       }
       const first=state.deck[0].layers.find(l=>l.role==='title'); const hook=first?first.text:'';
       const cta={Educar:'Guarda este post 📌',Vender:'Comenta INFO 💬',Personal:'¿Te pasó igual? 👇',Motivacional:'Empieza hoy 🔥'}[state.objetivo]||'Comenta INFO 💬';
@@ -1253,7 +1314,7 @@
         const d=document.createElement('div'); d.style.position='absolute'; d.style.left=l.x+'%'; d.style.top=l.y+'%'; d.style.opacity=(l.opacity==null?1:l.opacity); d.style.zIndex=10+i;
         if(l.type==='text'){
           d.style.transform=lyTransform(l);
-          const tx=document.createElement('div'); tx.style.fontFamily=l.font; tx.style.color=l.color; tx.style.fontSize=((l.size||16)*sc)+'px'; tx.style.fontWeight=l.bold?'900':'400'; tx.style.textDecoration=l.under?'underline':'none'; tx.style.textTransform=l.upper?'uppercase':'none'; tx.style.textAlign=l.align; tx.style.maxWidth=(300*sc)+'px'; tx.style.lineHeight='1.1'; tx.style.whiteSpace='pre-line'; tx.innerText=l.text; applyFx(tx,l.fx,p.accent); if(l.mark){ tx.style.background='rgba(250,204,21,.9)'; tx.style.color='#111'; tx.style.padding=`0 ${6*sc}px`; }
+          const tx=document.createElement('div'); tx.style.fontFamily=l.font; tx.style.color=l.color; tx.style.fontSize=((l.size||16)*sc)+'px'; tx.style.fontWeight=l.bold?'900':'400'; tx.style.textDecoration=l.under?'underline':'none'; tx.style.textTransform=l.upper?'uppercase':'none'; tx.style.textAlign=l.align; tx.style.maxWidth=((l.wMax||300)*sc)+'px'; tx.style.lineHeight='1.12'; tx.style.whiteSpace='pre-line'; tx.style.fontStyle=l.italic?'italic':'normal'; tx.innerText=l.text; applyFx(tx,l.fx,p.accent); if(l.mark){ tx.style.background='rgba(250,204,21,.9)'; tx.style.color='#111'; tx.style.padding=`0 ${6*sc}px`; }
           d.appendChild(tx);
         } else if(l.type==='photo'){
           d.style.transform=lyTransform(l);
@@ -1351,8 +1412,8 @@
       if(!ops||!ops.length) return;
       const s=state.deck[state.slideIndex]; const title=s.layers.find(l=>l.role==='title'); const body=s.layers.find(l=>l.role==='body');
       ops.forEach(op=>{
-        if(op.t==='title'&&title) title.text=op.v;
-        else if(op.t==='body'&&body) body.text=op.v;
+        if(op.t==='title'&&title) title.text=decodeHtml(op.v);
+        else if(op.t==='body'&&body) body.text=decodeHtml(op.v);
         else if(op.t==='accent'&&title) title.color=op.v;
         else if(op.t==='mayus'&&title) title.upper=true;
         else if(op.t==='arrow'){ const p=PRESETS[state.tipo]; if(p.elementos.includes('Flechas')) addShape('Flechas'); }
