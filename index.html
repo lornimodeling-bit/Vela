@@ -1248,7 +1248,7 @@
       const ph = document.getElementById('preview-phone');
       ph.style.aspectRatio = state.fmt==='9:16' ? '9/16' : '4/5';
       const dot=(s.bg.mode==='preset'&&p.id==='A3');
-      ph.className = "w-full max-w-[320px] rounded-2xl overflow-hidden border border-slate-700 canvas-glow relative" + (dot?' dot-grid':'');
+      ph.className = "w-[300px] max-w-full rounded-2xl overflow-hidden border border-slate-700 canvas-glow relative" + (dot?' dot-grid':'');
       ph.style.background = dot ? '' : slideBgCss(p,s);
       ph.innerHTML='';
       if(s.bg.overlay>0){ const ov=document.createElement('div'); ov.className='absolute inset-0 pointer-events-none'; ov.style.background=`rgba(0,0,0,${s.bg.overlay})`; ph.appendChild(ov); }
