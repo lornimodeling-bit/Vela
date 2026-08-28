@@ -228,6 +228,20 @@
             <p id="ia-note" class="text-[10px] text-amber-300/80 mt-1 hidden">✨ La IA elegirá de tu carpeta de Drive la mejor foto para cada slide según su contenido (fase IA).</p>
           </div>
 
+          <!-- 6 · MARCA -->
+          <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs font-bold text-white flex items-center gap-1.5"><i data-lucide="badge-check" class="w-3.5 h-3.5 text-amber-300"></i> Marca fija</p>
+                <p class="text-[10px] text-slate-500 mt-0.5">Tu @handle + avatar + línea en cada slide, como tus referencias.</p>
+              </div>
+              <button id="brand-btn" onclick="openBrandModal()" class="relative flex items-center gap-1.5 text-[11px] font-semibold rounded-lg px-3 py-2 border border-slate-700 bg-slate-950/60 text-slate-200 hover:border-amber-500">
+                <i data-lucide="settings-2" class="w-3.5 h-3.5"></i> Configurar
+                <span id="brand-dot" class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-900"></span>
+              </button>
+            </div>
+          </div>
+
           <!-- Primary action -->
           <div class="pt-1">
             <button id="generate-btn" onclick="generateAndProceed()" class="w-full py-3.5 px-4 rounded-xl font-bold text-sm vela-flame hover:opacity-95 text-white shadow-xl shadow-rose-500/20 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed" disabled>
@@ -375,6 +389,25 @@
       <div class="flex items-center justify-between mb-3"><p class="text-sm font-bold text-white">Banco de fotos <span class="text-[10px] text-emerald-400">· Drive</span></p><button onclick="closeBank()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button></div>
       <div id="bank-grid" class="grid grid-cols-3 gap-2"></div>
       <p id="bank-empty" class="text-xs text-slate-500 hidden">Aún no hay fotos en el banco. Súbelas en el Paso 1 ("Subir carpeta") — en la app se leerán de tu carpeta de Drive.</p>
+    </div>
+  </div>
+
+  <!-- Brand modal -->
+  <div id="brand-modal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/60 p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-sm w-full">
+      <div class="flex items-center justify-between mb-4"><p class="text-sm font-bold text-white flex items-center gap-1.5"><i data-lucide="badge-check" class="w-4 h-4 text-amber-300"></i> Marca fija</p><button onclick="closeBrandModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+      <div class="flex items-center gap-3 mb-4">
+        <div id="brand-av-prev" class="w-14 h-14 rounded-full overflow-hidden bg-slate-800 flex-shrink-0 border border-slate-700"></div>
+        <div class="flex-1">
+          <button onclick="document.getElementById('brand-av-input').click()" class="w-full text-[11px] font-semibold rounded-lg px-3 py-2 border border-slate-700 bg-slate-950/60 text-slate-200 hover:border-amber-500 flex items-center justify-center gap-1.5"><i data-lucide="upload" class="w-3.5 h-3.5"></i> Subir foto de perfil</button>
+          <input type="file" id="brand-av-input" class="hidden" accept="image/*" onchange="brandAvatarUpload(event)">
+        </div>
+      </div>
+      <label class="block text-[11px] text-slate-400 font-semibold mb-1">Usuario (@handle)</label>
+      <input id="brand-handle" type="text" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white mb-4 focus:border-amber-500 outline-none" placeholder="@tu_usuario">
+      <label class="flex items-center gap-2 mb-2 cursor-pointer"><input type="checkbox" id="brand-on" class="accent-amber-500"> <span class="text-xs text-slate-200">Mostrar marca en los slides</span></label>
+      <label class="flex items-center gap-2 mb-5 cursor-pointer"><input type="checkbox" id="brand-line" class="accent-amber-500"> <span class="text-xs text-slate-200">Línea al pie</span></label>
+      <button onclick="applyBrand()" class="w-full py-2.5 rounded-xl font-bold text-sm vela-flame text-white hover:opacity-95">Guardar marca</button>
     </div>
   </div>
 
@@ -891,6 +924,7 @@
       cv.innerHTML = '';
       if(s.bg.overlay>0){ const ov=document.createElement('div'); ov.className='absolute inset-0 pointer-events-none'; ov.style.background=`rgba(0,0,0,${s.bg.overlay})`; ov.style.zIndex=1; cv.appendChild(ov); }
       s.layers.forEach((l,i) => cv.appendChild(renderLayerNode(l,i)));
+      paintBrand(cv, s, (cv.clientWidth||360)/360, dot);
       paintSelection();
     }
     function lyTransform(l){ return `translate(-50%,-50%) rotate(${l.rot||0}deg) scale(${(l.scale||1)*(l.flipX||1)}, ${l.scale||1})`; }
@@ -1165,6 +1199,7 @@
           <div><span class="text-slate-500">Oscurecer · ${Math.round(bg.overlay*100)}%</span><input type="range" min="0" max="0.8" step="0.05" value="${bg.overlay}" oninput="setOverlay(this.value)" class="w-full accent-rose-500"></div>
           <div class="pt-2 border-t border-slate-800 flex justify-between"><span>Formato</span><span class="text-slate-200">${state.fmt}</span></div>
           <div class="flex justify-between"><span>Nº slides</span><span class="text-slate-200">${state.deck.length}</span></div>
+          <div class="pt-2 border-t border-slate-800"><label class="flex items-center justify-between cursor-pointer"><span class="text-slate-400 flex items-center gap-1"><i data-lucide="badge-check" class="w-3.5 h-3.5"></i> Marca en este slide</span><input type="checkbox" ${s.brandOff?'':'checked'} onchange="toggleSlideBrand()" class="accent-amber-500"></label></div>
           <p class="text-[10px] text-slate-500">Toca cualquier capa para editarla.</p>`;
       }
       lucide.createIcons();
@@ -1303,6 +1338,7 @@
         else { d.innerHTML=elMarkup(l); }
         ph.appendChild(d);
       });
+      paintBrand(ph, s, (ph.clientWidth||300)/360, dot);
       // dots
       const dots=document.getElementById('preview-dots'); dots.innerHTML='';
       state.deck.forEach((_,idx)=>{ const b=document.createElement('button'); b.onclick=()=>{ state.slideIndex=idx; renderPreview(); }; b.className=`h-2 rounded-full transition-all ${idx===state.slideIndex?'w-5 bg-rose-500':'w-2 bg-slate-600'}`; dots.appendChild(b); });
@@ -1369,6 +1405,7 @@
         }
         stage.appendChild(d);
       });
+      paintBrand(stage, slide, sc, dot);
       return {w,h};
     }
     async function captureSlide(slide){
@@ -1456,7 +1493,7 @@
     const DRIVE_CLIENT_DEFAULT='311056783391-4agr8hjgsuo4v467nococdbgq7gd7bo3.apps.googleusercontent.com';
     let DRIVE_CLIENT_ID=DRIVE_CLIENT_DEFAULT, DRIVE_FOLDER='', __driveToken='', __driveTokenClient=null;
     try{ DRIVE_CLIENT_ID=localStorage.getItem('vela_drive_client')||DRIVE_CLIENT_DEFAULT; }catch(e){}
-    try{ DRIVE_FOLDER=localStorage.getItem('vela_drive_folder')||'1uUqzIkx4Clw5Vgxc6KRi9PeMEkvdjtxJ'; }catch(e){}
+    try{ DRIVE_FOLDER=localStorage.getItem('vela_drive_folder')||'10iBOOd_PVll0GncRPJkIq9s5GNUgyoEV'; }catch(e){}
     function setDriveConfig(){
       const cid=prompt('Pega tu CLIENT ID de Google OAuth (termina en .apps.googleusercontent.com):', DRIVE_CLIENT_ID||'');
       if(cid===null) return; DRIVE_CLIENT_ID=cid.trim(); try{localStorage.setItem('vela_drive_client',DRIVE_CLIENT_ID);}catch(e){}
@@ -1504,6 +1541,52 @@
         showToast(`Banco listo: ${urls.length} fotos de tu Drive ✓`);
       }catch(e){ showToast('Error Drive: '+e.message); driveDot(false); }
     }
+    /* ===================== BRAND KIT · marca fija ===================== */
+    let brand = { on:true, handle:'@ameyali.orea', avatar:null, line:true };
+    try{ const b=JSON.parse(localStorage.getItem('vela_brand')||'null'); if(b&&typeof b==='object') brand=Object.assign(brand,b); }catch(e){}
+    function saveBrand(){ try{ localStorage.setItem('vela_brand', JSON.stringify(brand)); }catch(e){} }
+    /* estampa avatar+@handle+línea en un contenedor de slide (overlay fijo, no editable) */
+    function paintBrand(container, slide, scale, light){
+      if(!brand.on || (slide && slide.brandOff)) return;
+      scale = scale || 1; const s=(n)=>Math.max(1, n*scale);
+      const fg = light ? 'rgba(31,41,55,.92)' : 'rgba(255,255,255,.92)';
+      const ln = light ? 'rgba(31,41,55,.7)' : 'rgba(255,255,255,.9)';
+      const sh = light ? 'none' : '0 1px 3px rgba(0,0,0,.55)';
+      const g=document.createElement('div'); g.className='brand-ovl';
+      g.style.cssText=`position:absolute;left:4.5%;bottom:6.8%;display:flex;align-items:center;gap:${s(6)}px;z-index:45;pointer-events:none`;
+      const av=document.createElement('div');
+      av.style.cssText=`width:${s(24)}px;height:${s(24)}px;border-radius:50%;overflow:hidden;flex:0 0 auto;background:${light?'rgba(0,0,0,.08)':'rgba(255,255,255,.18)'};box-shadow:${sh}`;
+      if(brand.avatar){ const im=document.createElement('img'); im.src=brand.avatar; im.style.cssText='width:100%;height:100%;object-fit:cover'; av.appendChild(im); }
+      else { const fl=document.createElement('div'); fl.className='vela-flame'; fl.style.cssText='width:100%;height:100%'; av.appendChild(fl); }
+      const tx=document.createElement('div'); tx.textContent=brand.handle||'';
+      tx.style.cssText=`font-family:Inter,sans-serif;font-weight:600;color:${fg};font-size:${s(11)}px;text-shadow:${sh}`;
+      g.appendChild(av); g.appendChild(tx); container.appendChild(g);
+      if(brand.line){ const l=document.createElement('div'); l.className='brand-ovl';
+        l.style.cssText=`position:absolute;left:4.5%;bottom:3.6%;width:42%;height:${s(2)}px;background:${ln};border-radius:2px;z-index:45;pointer-events:none`;
+        container.appendChild(l); }
+    }
+    function openBrandModal(){
+      const m=document.getElementById('brand-modal'); if(!m) return;
+      document.getElementById('brand-handle').value = brand.handle||'';
+      document.getElementById('brand-on').checked = !!brand.on;
+      document.getElementById('brand-line').checked = !!brand.line;
+      const av=document.getElementById('brand-av-prev');
+      av.innerHTML = brand.avatar ? `<img src="${brand.avatar}" class="w-full h-full object-cover">` : '<div class="vela-flame w-full h-full"></div>';
+      m.classList.remove('hidden'); m.classList.add('flex'); lucide.createIcons();
+    }
+    function closeBrandModal(){ const m=document.getElementById('brand-modal'); m.classList.add('hidden'); m.classList.remove('flex'); }
+    function brandAvatarUpload(ev){ const f=ev.target.files&&ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=e=>{ brand.avatar=e.target.result; document.getElementById('brand-av-prev').innerHTML=`<img src="${brand.avatar}" class="w-full h-full object-cover">`; }; r.readAsDataURL(f); }
+    function applyBrand(){
+      brand.handle=(document.getElementById('brand-handle').value||'').trim();
+      brand.on=document.getElementById('brand-on').checked;
+      brand.line=document.getElementById('brand-line').checked;
+      saveBrand(); closeBrandModal();
+      if(typeof renderCanvas==='function' && currentStep===2) renderCanvas();
+      if(typeof renderPreview==='function' && currentStep===3) renderPreview();
+      updateBrandBtn(); showToast('Marca guardada ✓');
+    }
+    function updateBrandBtn(){ const d=document.getElementById('brand-dot'); if(d) d.className='absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-900 '+(brand.on?'bg-emerald-400':'bg-slate-500'); }
+    function toggleSlideBrand(){ const s=state.deck[state.slideIndex]; if(!s) return; s.brandOff=!s.brandOff; renderCanvas(); renderProps(); touchSave(); }
     function applyOps(ops){
       if(!ops||!ops.length) return;
       const s=state.deck[state.slideIndex]; const title=s.layers.find(l=>l.role==='title'); const body=s.layers.find(l=>l.role==='body');
