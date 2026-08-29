@@ -428,6 +428,7 @@
         </div>
       </div>
       <div id="pkg-progress" class="mb-3 hidden"><div class="h-2 bg-slate-800 rounded-full overflow-hidden"><div id="pkg-bar" class="h-full vela-flame transition-all" style="width:0%"></div></div><p id="pkg-progtxt" class="text-[11px] text-slate-400 mt-1"></p></div>
+      <div id="pkg-banner" class="hidden mb-3"></div>
       <div id="pkg-body" class="space-y-4"></div>
     </div>
   </div>
@@ -1709,9 +1710,16 @@
       const hooks = HOOK_STYLES.map(e=> job('hook', e, hookTxt));
       const cuerpo = cuerpoTxts.map((t,i)=> job('cuerpo', A.cuerpo[i % A.cuerpo.length], t));
       const ctas = A.cta ? CTA_STYLES.map(e=> job('cta', e, ctaTxt)) : [];
-      return { angulo:A, anguloId, hooks, cuerpo, ctas };
+      return { angulo:A, anguloId, hooks, cuerpo, ctas, textos:{ hook:hookTxt, cuerpo:cuerpoTxts.slice(), cta:ctaTxt } };
     }
-    /* Cliente: pide una imagen a la IA (Supabase → Gemini). Devuelve dataURL o null. */
+    /* Re-inyecta el texto (editado) en el prompt del job, sin cambiar la variante elegida. */
+    function rebuildPrompt(job){
+      if(job.ia && PROMPTS_IA[job.estilo] && job.promptIdx!=null){
+        job.prompt = PROMPTS_IA[job.estilo][job.promptIdx].replace('{{TEXTO}}', (job.texto||'').trim()) + SUFIJO_ORGANICO;
+      }
+    }
+    /* Cliente: pide una imagen a la IA (Supabase → Gemini). Devuelve dataURL o null. Guarda el motivo del error. */
+    let IA_LAST_ERR = null;
     async function generarImagenIA(prompt, imagenDataUrl){
       if(!AI_URL){ showToast && showToast('Conecta la IA primero'); return null; }
       try{
@@ -1719,8 +1727,16 @@
         if(imagenDataUrl) payload.imagen = imagenDataUrl;
         const r = await fetch(AI_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
         const j = await r.json();
-        return j && j.image ? j.image : null;
-      }catch(e){ return null; }
+        if(j && j.image) return j.image;
+        IA_LAST_ERR = j || {error:'sin respuesta'};
+        return null;
+      }catch(e){ IA_LAST_ERR = {error:String(e)}; return null; }
+    }
+    /* ¿El último error fue por falta de plan de pago / cuota (429)? */
+    function esErrorBilling(){
+      const e = IA_LAST_ERR; if(!e) return false;
+      const txt = JSON.stringify(e).toLowerCase();
+      return /429|quota|billing|plan|rate.?limit|exceeded/.test(txt);
     }
     /* ---- helpers de composición (canvas) ---- */
     function loadImg(src){ return new Promise((res,rej)=>{ const i=new Image(); i.crossOrigin='anonymous'; i.onload=()=>res(i); i.onerror=rej; i.src=src; }); }
@@ -1744,16 +1760,55 @@
       if(!brand.on) return dataURL;
       try{ const im=await loadImg(dataURL); const cv=document.createElement('canvas'); cv.width=1080; cv.height=1350; const ctx=cv.getContext('2d'); ctx.drawImage(im,0,0,1080,1350); await drawBrandOn(ctx,1080,1350); return cv.toDataURL('image/png'); }catch(e){ return dataURL; }
     }
-    /* render de un slide foto-organica: foto real + scrim + texto blanco + marca (plantilla, sin IA) */
+    /* ---- Recetas de layout para foto-organica (SIN IA): variedad de composición ----
+       Cada slide elige una al azar → misma foto real, distinto encuadre del texto.
+       Ninguna toca la foto con IA; solo cambian scrim, posición, tipografía. */
+    const RECETAS_ORG = [
+      { id:'banda-inferior', anchor:'bottom', align:'center', italic:true,  weight:900, sizeF:0.062, scrim:'bottom', shadow:12 },
+      { id:'respeta-rostro', anchor:'top',    align:'center', italic:false, weight:800, sizeF:0.058, scrim:'top',    shadow:10 },
+      { id:'cita-centrada',  anchor:'center', align:'center', italic:true,  weight:900, sizeF:0.070, scrim:'even',   shadow:14 },
+      { id:'bloque-lateral', anchor:'bottom', align:'left',   italic:false, weight:800, sizeF:0.060, scrim:'left',   shadow:10 },
+      { id:'titular-apoyo',  anchor:'bottom', align:'center', italic:false, weight:900, sizeF:0.066, scrim:'bottom', shadow:12, destaca:true },
+    ];
+    function scrimOrg(ctx,W,H,tipo){
+      let g;
+      if(tipo==='bottom'){ g=ctx.createLinearGradient(0,H*0.35,0,H); g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.72)'); }
+      else if(tipo==='top'){ g=ctx.createLinearGradient(0,0,0,H*0.55); g.addColorStop(0,'rgba(0,0,0,.68)'); g.addColorStop(1,'rgba(0,0,0,0)'); }
+      else if(tipo==='left'){ g=ctx.createLinearGradient(0,0,W*0.9,0); g.addColorStop(0,'rgba(0,0,0,.66)'); g.addColorStop(1,'rgba(0,0,0,.05)'); }
+      else { g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'rgba(0,0,0,.42)'); g.addColorStop(.5,'rgba(0,0,0,.28)'); g.addColorStop(1,'rgba(0,0,0,.5)'); }
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    }
+    function wrapLines(ctx,text,maxW){
+      const out=[]; (text||'').split('\n').forEach(ln=>{ const ws=ln.split(' '); let cur=''; ws.forEach(w=>{ const t=cur?cur+' '+w:w; if(ctx.measureText(t).width>maxW && cur){ out.push(cur); cur=w; } else cur=t; }); if(cur) out.push(cur); });
+      return out;
+    }
+    /* render de un slide foto-organica: foto real + receta de layout + marca (plantilla, sin IA) */
     async function renderOrganica(job){
       const W=1080,H=1350; const cv=document.createElement('canvas'); cv.width=W; cv.height=H; const ctx=cv.getContext('2d');
       ctx.fillStyle='#17171c'; ctx.fillRect(0,0,W,H);
       if(job.foto){ try{ const im=await loadImg(job.foto); const s=Math.max(W/im.width,H/im.height); const dw=im.width*s, dh=im.height*s; ctx.drawImage(im,(W-dw)/2,(H-dh)/2,dw,dh); }catch(e){} }
-      const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'rgba(0,0,0,.42)'); g.addColorStop(.5,'rgba(0,0,0,.15)'); g.addColorStop(1,'rgba(0,0,0,.55)'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-      const fs=Math.round(W*0.06); ctx.font=`italic 900 ${fs}px Inter, system-ui, sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff'; ctx.shadowColor='rgba(0,0,0,.6)'; ctx.shadowBlur=10;
-      const maxW=W*0.86, out=[]; (job.texto||'').split('\n').forEach(ln=>{ const ws=ln.split(' '); let cur=''; ws.forEach(w=>{ const t=cur?cur+' '+w:w; if(ctx.measureText(t).width>maxW && cur){ out.push(cur); cur=w; } else cur=t; }); if(cur) out.push(cur); });
-      const lh=fs*1.16, totalH=out.length*lh; let y=Math.max(H*0.22, totalH/2+60) - totalH/2 + lh/2;
-      out.forEach(l=>{ ctx.fillText(l, W/2, y); y+=lh; });
+      if(job.layout==null || job.layout<0 || job.layout>=RECETAS_ORG.length) job.layout = Math.floor(Math.random()*RECETAS_ORG.length);
+      const R = RECETAS_ORG[job.layout];
+      scrimOrg(ctx,W,H,R.scrim);
+      const pad=W*0.07, x = R.align==='left' ? pad : W/2, maxW = R.align==='left' ? W*0.72 : W*0.86, fs=Math.round(W*R.sizeF);
+      ctx.textAlign=R.align; ctx.textBaseline='middle'; ctx.fillStyle='#fff'; ctx.shadowColor='rgba(0,0,0,.6)'; ctx.shadowBlur=R.shadow;
+      if(R.destaca){
+        // titular-apoyo: primeras palabras GRANDES (clave) + resto en apoyo
+        const words=(job.texto||'').trim().split(/\s+/); const cut=Math.min(3, Math.max(1, Math.ceil(words.length/3)));
+        const key=words.slice(0,cut).join(' ').toUpperCase(), rest=words.slice(cut).join(' ');
+        const fsK=Math.round(fs*1.32), fsR=Math.round(fs*0.72);
+        ctx.font=`900 ${fsK}px Inter, system-ui, sans-serif`; const kl=wrapLines(ctx,key,maxW);
+        ctx.font=`600 ${fsR}px Inter, system-ui, sans-serif`; const rl=wrapLines(ctx,rest,maxW);
+        const lhK=fsK*1.1, lhR=fsR*1.22, blockH=kl.length*lhK + (rl.length?rl.length*lhR+lhR*0.4:0);
+        let y=H - H*0.15 - blockH + lhK/2;
+        ctx.font=`900 ${fsK}px Inter, system-ui, sans-serif`; kl.forEach(l=>{ ctx.fillText(l,x,y); y+=lhK; });
+        if(rl.length){ y+=lhR*0.2; ctx.font=`600 ${fsR}px Inter, system-ui, sans-serif`; rl.forEach(l=>{ ctx.fillText(l,x,y); y+=lhR; }); }
+      } else {
+        ctx.font=`${R.italic?'italic ':''}${R.weight} ${fs}px Inter, system-ui, sans-serif`;
+        const lines=wrapLines(ctx,job.texto,maxW), lh=fs*1.16, totalH=lines.length*lh;
+        let y = R.anchor==='top' ? H*0.16 + lh/2 : R.anchor==='bottom' ? H - H*0.16 - totalH + lh/2 : H/2 - totalH/2 + lh/2;
+        lines.forEach(l=>{ ctx.fillText(l,x,y); y+=lh; });
+      }
       await drawBrandOn(ctx, W, H);
       return cv.toDataURL('image/png');
     }
@@ -1797,19 +1852,57 @@
     async function iniciarPaqueteIA(){
       if(!AI_URL){ showToast('Conecta la IA primero (pill del header)'); return; }
       if(!state.tipo){ showToast('Elige un ángulo/estilo primero'); return; }
+      const _gi=document.getElementById('guion-input'); if(_gi) state.guion=_gi.value;
       if(!state.guion || !state.guion.trim()){ showToast('Pega tu guion primero'); return; }
       PKG = armarPaquete(state.tipo, state.guion);
-      // asignar foto por defecto (round-robin) a los jobs ia-foto
+      // asignar foto por defecto (round-robin) a los jobs con foto
       let k=0; [...PKG.hooks,...PKG.cuerpo,...PKG.ctas].forEach(j=>{ if(j.estilo==='ia-foto' || j.estilo==='foto-organica'){ if(state.fotos && state.fotos.length){ j.foto=state.fotos[k % state.fotos.length]; k++; } } });
       const m=document.getElementById('pkg-modal'); m.classList.remove('hidden'); m.classList.add('flex');
-      document.getElementById('pkg-sub').innerText = `${(ANGULOS_IA[state.tipo]||{}).nombre||state.tipo} · ${PKG.hooks.length} hooks + ${PKG.cuerpo.length} cuerpo${PKG.ctas.length?` + ${PKG.ctas.length} CTAs`:''}`;
       document.getElementById('pkg-zip').classList.add('hidden');
+      document.getElementById('pkg-banner').classList.add('hidden');
+      document.getElementById('pkg-progress').classList.add('hidden');
+      IA_LAST_ERR = null;
+      renderPreviewApartados();   // ← primero muestra los apartados editables
+    }
+    /* Paso 1: vista editable de los apartados (Hook / Slides / CTA) ANTES de generar */
+    function renderPreviewApartados(){
+      const A=ANGULOS_IA[PKG.anguloId]||{}; const T=PKG.textos;
+      const nAI=[...PKG.hooks,...PKG.cuerpo,...PKG.ctas].filter(j=>j.ia).length; const costo=(nAI*0.039).toFixed(2);
+      document.getElementById('pkg-sub').innerText = `${A.nombre||PKG.anguloId} · revisa y edita el texto de cada slide antes de generar`;
+      const field=(label,val,key)=>`<div class="mb-2"><label class="text-[11px] font-bold text-amber-300">${label}</label><textarea data-tk="${key}" rows="2" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-amber-500 outline-none">${escHtml(val||'')}</textarea></div>`;
+      let html = `<p class="text-[11px] text-slate-400 mb-3">Cada apartado se convierte en una imagen (el <b>Hook</b> y el <b>CTA</b> generan 3 estilos cada uno). Edita el texto antes de gastar imágenes.</p>`;
+      html += field('HOOK (portada · 3 estilos)', T.hook, 'hook');
+      T.cuerpo.forEach((t,i)=> html += field('CUERPO · Slide '+(i+1), t, 'c'+i));
+      if(PKG.ctas.length) html += field('CTA (cierre · 3 estilos)', T.cta, 'cta');
+      html += `<button onclick="confirmarYGenerar()" class="w-full mt-3 py-3 rounded-xl font-bold text-sm vela-flame text-white hover:opacity-95 flex items-center justify-center gap-2"><i data-lucide="sparkles" class="w-4 h-4"></i> Generar imágenes · ${nAI} img (~$${costo})</button>`;
+      document.getElementById('pkg-body').innerHTML = html; lucide.createIcons();
+    }
+    /* Paso 2: toma los textos editados, los re-inyecta y genera */
+    async function confirmarYGenerar(){
+      const get=(k)=>{ const el=document.querySelector(`[data-tk="${k}"]`); return el?el.value:''; };
+      PKG.textos.hook=get('hook'); if(PKG.ctas.length) PKG.textos.cta=get('cta');
+      PKG.textos.cuerpo = PKG.textos.cuerpo.map((_,i)=>get('c'+i));
+      PKG.hooks.forEach(j=>{ j.texto=PKG.textos.hook; rebuildPrompt(j); });
+      PKG.cuerpo.forEach((j,i)=>{ j.texto=PKG.textos.cuerpo[i]||j.texto; rebuildPrompt(j); });
+      PKG.ctas.forEach(j=>{ j.texto=PKG.textos.cta; rebuildPrompt(j); });
+      const nAI=[...PKG.hooks,...PKG.cuerpo,...PKG.ctas].filter(j=>j.ia).length; const costo=(nAI*0.039).toFixed(2);
+      document.getElementById('pkg-sub').innerText = `${(ANGULOS_IA[PKG.anguloId]||{}).nombre||PKG.anguloId} · ${PKG.hooks.length} hooks + ${PKG.cuerpo.length} cuerpo${PKG.ctas.length?` + ${PKG.ctas.length} CTAs`:''} · ${nAI} img (~$${costo})`;
+      IA_LAST_ERR=null; document.getElementById('pkg-banner').classList.add('hidden');
       renderPaqueteModal();
-      // generar
       const prog=document.getElementById('pkg-progress'), bar=document.getElementById('pkg-bar'), pt=document.getElementById('pkg-progtxt');
-      prog.classList.remove('hidden');
+      prog.classList.remove('hidden'); bar.style.width='0%';
       await generarPaquete(PKG, (done,total,job)=>{ bar.style.width=Math.round(done/total*100)+'%'; pt.innerText=`Generando ${done}/${total}${job?` · ${job.parte}/${job.estilo}`:''}…`; renderPaqueteModal(); });
-      pt.innerText='Paquete listo ✓'; document.getElementById('pkg-zip').classList.remove('hidden'); renderPaqueteModal();
+      const iaErr = [...PKG.hooks,...PKG.cuerpo,...PKG.ctas].filter(j=>j.ia && j.estado==='error').length;
+      if(iaErr && esErrorBilling()){
+        const b=document.getElementById('pkg-banner');
+        b.className='mb-3 rounded-xl border border-amber-500/50 bg-amber-500/10 p-3 text-[12px] text-amber-100';
+        b.innerHTML = `<p class="font-bold text-amber-200 flex items-center gap-1.5"><i data-lucide="credit-card" class="w-4 h-4"></i> La generación con IA necesita PLAN DE PAGO en la API</p>
+          <p class="mt-1 text-amber-100/90">Los modelos de imagen (Gemini) requieren facturación activa. Los slides con foto real (orgánicos) sí se generaron. Costo estimado: <b>~$${costo}</b> por este carrusel (${nAI} imágenes).</p>
+          <p class="mt-1 text-amber-100/70">Activa el plan de pago en la API (secret <code>GEMINI_API_KEY</code>) y vuelve a generar.</p>`;
+        b.classList.remove('hidden'); lucide.createIcons();
+        pt.innerText='Orgánicos listos · IA pendiente de plan de pago';
+      } else { pt.innerText='Paquete listo ✓'; }
+      document.getElementById('pkg-zip').classList.remove('hidden'); renderPaqueteModal();
     }
     function jobCard(j, grupo, i){
       const th = j.imagen ? `<img src="${j.imagen}" class="w-full aspect-[4/5] object-cover rounded-lg">`
