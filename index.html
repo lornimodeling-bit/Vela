@@ -1687,10 +1687,12 @@
       B2:{ nombre:'Hook foto personal',cta:false, cuerpo:['foto-organica','nude'], organico:true }
     };
     const ESTILO_ES_IA = (e)=> e!=='foto-organica';   // 'foto-organica' es plantilla (no IA)
+    /* Regla GLOBAL: todo debe verse orgánico/natural, edición sutil, que NO se note hecho con IA. */
+    const SUFIJO_ORGANICO = ' MUY IMPORTANTE: que la imagen se vea lo más ORGÁNICA, natural y creíble posible — edición sutil y realista, NADA exagerada, que NO se note que está hecha con IA (evita el look artificial, plástico, perfecto o sobreprocesado; luz, texturas y detalles naturales).';
     function pickPrompt(estilo, texto){
       const fam = PROMPTS_IA[estilo]; if(!fam) return null;
       const i = Math.floor(Math.random()*fam.length);
-      return { idx:i, prompt: fam[i].replace('{{TEXTO}}', (texto||'').trim()) };
+      return { idx:i, prompt: fam[i].replace('{{TEXTO}}', (texto||'').trim()) + SUFIJO_ORGANICO };
     }
     function bloqueTexto(b){ if(!b) return ''; return [b.title, b.body].filter(Boolean).join('\n'); }
     /* Arma el paquete: hooks(3) + cuerpo(N) + ctas(3 o 0), asignando estilo + prompt al azar + texto. */
